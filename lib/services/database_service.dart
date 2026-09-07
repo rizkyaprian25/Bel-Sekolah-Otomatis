@@ -1,0 +1,131 @@
+import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
+
+import 'package:bel_sekolah_otomatis/models/jadwal_bel.dart';
+
+// Akses SQLite untuk tabel jadwal.
+// Dipakai dari UI isolate maupun background isolate (alarm callback),
+// jadi open database lewat method static yang sama.
+class DatabaseService {
+  DatabaseService._();
+  static final DatabaseService instance = DatabaseService._();
+
+  static const String tabelJadwal = 'jadwal';
+  static const int versiDb = 1;
+
+  Database? _db;
+
+  Future<Database> get database async {
+    final db = _db;
+    if (db != null) return db;
+    return _db = await openDb();
+  }
+
+  static Future<String> dbPath() async {
+    final dir = await getDatabasesPath();
+    return p.join(dir, 'bel_sekolah.db');
+  }
+
+  static Future<Database> openDb() async {
+    final path = await dbPath();
+    return openDatabase(
+      path,
+      version: versiDb,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE $tabelJadwal (
+            id TEXT PRIMARY KEY,
+            nama TEXT NOT NULL,
+            jam INTEGER NOT NULL,
+            menit INTEGER NOT NULL,
+            daftarHari TEXT NOT NULL,
+            pengulangan INTEGER NOT NULL DEFAULT 3,
+            jedaDetik INTEGER NOT NULL DEFAULT 5,
+            pathSuara TEXT NOT NULL DEFAULT '',
+            volume REAL NOT NULL DEFAULT 1.0,
+            aktif INTEGER NOT NULL DEFAULT 1
+          )
+        ''');
+        await db.execute(
+          'CREATE INDEX idx_jadwal_waktu ON $tabelJadwal (jam, menit)',
+        );
+      },
+    );
+  }
+
+  Future<void> insert(JadwalBel j) async {
+    final db = await database;
+    await db.insert(
+      tabelJadwal,
+      j.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> update(JadwalBel j) async {
+    final db = await database;
+    await db.update(
+      tabelJadwal,
+      j.toMap(),
+      where: 'id = ?',
+      whereArgs: [j.id],
+    );
+  }
+
+  Future<void> hapus(String id) async {
+    final db = await database;
+    await db.delete(tabelJadwal, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<JadwalBel>> getSemua() async {
+    final db = await database;
+    final rows = await db.query(
+      tabelJadwal,
+      orderBy: 'jam ASC, menit ASC, nama ASC',
+    );
+    return rows.map(JadwalBel.fromMap).toList();
+  }
+
+  Future<JadwalBel?> getById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      tabelJadwal,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return JadwalBel.fromMap(rows.first);
+  }
+
+  Future<void> setAktif(String id, bool aktif) async {
+    final db = await database;
+    await db.update(
+      tabelJadwal,
+      {'aktif': aktif ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Jadwal aktif yang berlaku pada [tanggal] (filter hari),
+  /// urut waktu. Tanggal libur dan mode senyap dicek di layer atas
+  /// (provider / scheduler) agar service tetap murni data.
+  Future<List<JadwalBel>> getJadwalTanggal(DateTime tanggal) async {
+    final semua = await getSemua();
+    final hasil = semua
+        .where((j) => j.aktif && j.berlakuPada(tanggal))
+        .toList();
+    hasil.sort((a, b) {
+      final c = a.jam.compareTo(b.jam);
+      if (c != 0) return c;
+      return a.menit.compareTo(b.menit);
+    });
+    return hasil;
+  }
+
+  Future<void> close() async {
+    await _db?.close();
+    _db = null;
+  }
+}
