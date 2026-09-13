@@ -116,6 +116,10 @@ class AppKonstanta {
       id: 'assets:ai_solat_dhuha.mp3',
       label: 'AI: Solat Duha Bersama (Jam 7)',
     ),
+    SuaraBawaan(
+      id: 'assets:ai_kebersihan.mp3',
+      label: 'AI: Kebersihan Lingkungan & Kelas (Jam 7)',
+    ),
 
     // Nada Bel Klasik & Digital
     SuaraBawaan(id: 'assets:bel_klasik.wav', label: 'Nada: Bel Klasik'),

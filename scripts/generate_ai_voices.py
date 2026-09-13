@@ -107,6 +107,11 @@ ITEMS = [
         "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan menuju ke lapangan untuk melaksanakan solat duha bersama.",
         "label": "AI - Solat Duha Bersama",
     },
+    {
+        "filename": "ai_kebersihan.mp3",
+        "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan membersihkan lingkungan dan kelas masing-masing.",
+        "label": "AI - Kebersihan Lingkungan dan Kelas",
+    },
 ]
 
 def maximize_audio_volume(file_path):

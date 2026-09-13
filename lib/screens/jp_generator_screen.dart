@@ -572,6 +572,7 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                       'Senam Pagi',
                       'Literasi atau Numerasi',
                       'Solat Duha Bersama',
+                      'Kebersihan Lingkungan & Kelas',
                     ].map((kegiatan) {
                       final isSelected =
                           _namaKegiatanAwalCtrl.text.toLowerCase() ==

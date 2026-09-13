@@ -229,6 +229,7 @@ void main() {
       ('Senam Pagi', 'assets:ai_senam.mp3'),
       ('Literasi atau Numerasi', 'assets:ai_literasi.mp3'),
       ('Solat Duha Bersama', 'assets:ai_solat_dhuha.mp3'),
+      ('Kebersihan Lingkungan dan Kelas', 'assets:ai_kebersihan.mp3'),
     ]) {
       final config = JpGeneratorConfig(
         daftarHari: const [1],

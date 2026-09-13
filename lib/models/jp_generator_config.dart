@@ -305,6 +305,10 @@ class JpGeneratorConfig {
             namaLower.contains('duha') ||
             namaLower.contains('dhuha')) {
           suaraKegiatan = 'assets:ai_solat_dhuha.mp3';
+        } else if (namaLower.contains('bersih') ||
+            namaLower.contains('kebersihan') ||
+            namaLower.contains('lingkungan')) {
+          suaraKegiatan = 'assets:ai_kebersihan.mp3';
         } else {
           suaraKegiatan = 'assets:ai_masuk_jp1.mp3';
         }
