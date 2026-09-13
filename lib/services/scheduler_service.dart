@@ -195,8 +195,12 @@ class BelBerikutnya {
 Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    debugPrint('alarmCallback: id=$alarmId params=$params');
     final jadwalId = params['jadwalId'] as String?;
-    if (jadwalId == null) return;
+    if (jadwalId == null) {
+      debugPrint('alarmCallback: tanpa jadwalId, abaikan');
+      return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final modeSenyap =
@@ -221,10 +225,21 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
         await db.close();
       } catch (_) {}
     }
-    if (rows.isEmpty) return;
+    if (rows.isEmpty) {
+      debugPrint('alarmCallback: jadwal $jadwalId tidak ketemu di DB');
+      return;
+    }
     final jadwal = JadwalBel.fromMap(rows.first);
-    if (!jadwal.aktif) return;
-    if (!jadwal.berlakuPada(now)) return;
+    if (!jadwal.aktif) {
+      debugPrint('alarmCallback: jadwal nonaktif, abaikan');
+      return;
+    }
+    if (!jadwal.berlakuPada(now)) {
+      debugPrint('alarmCallback: tidak berlaku hari ini, abaikan');
+      return;
+    }
+
+    debugPrint('alarmCallback: bunyikan ${jadwal.nama}');
 
     await NotificationService.tampilDiBackground(
       jadwal.nama,
@@ -236,7 +251,8 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
       pengulangan: jadwal.jumlahPengulangan,
       jedaDetik: jadwal.jedaDetik,
     );
-  } catch (_) {
-    // Jangan lempar error dari background isolate.
+  } catch (e) {
+    // Jangan lempar error dari background isolate, cukup catat.
+    debugPrint('alarmCallback ERROR: $e');
   }
 }

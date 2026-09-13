@@ -6,12 +6,16 @@ plugins {
 
 android {
     namespace = "com.sekolah.bel.bel_sekolah_otomatis"
-    compileSdk = flutter.compileSdkVersion
+    // Naikkan dari default Flutter (35) ke 36 karena
+    // flutter_plugin_android_lifecycle (via file_picker) mewajibkannya.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Wajib untuk flutter_local_notifications v19+ (java.time di API lama).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -42,4 +46,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Pendamping isCoreLibraryDesugaringEnabled di atas.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

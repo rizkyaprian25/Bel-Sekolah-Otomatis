@@ -90,12 +90,15 @@ class _JadwalFormScreenState extends ConsumerState<JadwalFormScreen> {
     final jeda = int.tryParse(_jeda.text) ?? 0;
     setState(() => _previewBunyi = true);
     try {
-      await AudioService.instance.preview(
+      final error = await AudioService.instance.preview(
         pathSuara: _suara,
         volume: _volume,
         pengulangan: pengulangan < 1 ? 1 : pengulangan,
         jedaDetik: jeda < 0 ? 0 : jeda,
       );
+      if (error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      }
     } finally {
       if (mounted) setState(() => _previewBunyi = false);
     }

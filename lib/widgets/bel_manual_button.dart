@@ -25,10 +25,18 @@ class _BelManualButtonState extends ConsumerState<BelManualButton> {
     final atur = ref.read(pengaturanProvider);
     setState(() => _bunyi = true);
     try {
-      await AudioService.instance.belManual(
+      final err = await AudioService.instance.belManual(
         pathSuara: atur.manualSuara,
         volume: atur.manualVolume,
       );
+      if (err != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _bunyi = false);
     }

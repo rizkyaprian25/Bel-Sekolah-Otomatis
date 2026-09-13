@@ -68,10 +68,18 @@ class _PengaturanScreenState extends ConsumerState<PengaturanScreen> {
     final atur = ref.read(pengaturanProvider);
     setState(() => _testBunyi = true);
     try {
-      await AudioService.instance.belManual(
+      final err = await AudioService.instance.belManual(
         pathSuara: atur.manualSuara,
         volume: atur.manualVolume,
       );
+      if (err != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _testBunyi = false);
     }

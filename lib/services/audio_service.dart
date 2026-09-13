@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:bel_sekolah_otomatis/models/jadwal_bel.dart';
 
@@ -15,10 +16,36 @@ class AudioService {
   bool _stopDiminta = false;
   int _sesi = 0;
 
+  static AudioContext get audioContext => AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.alarm,
+          audioFocus: AndroidAudioFocus.gainTransient,
+        ),
+      );
+
+  static Future<void> setupAudio() async {
+    try {
+      await AudioPlayer.global.setAudioContext(audioContext);
+    } catch (e) {
+      debugPrint('AudioService.setupAudio ERROR: $e');
+    }
+  }
+
   static Source resolveSource(String pathSuara) {
     if (pathSuara.startsWith('assets:')) {
       final file = pathSuara.replaceFirst('assets:', '');
-      return AssetSource('sounds/$file');
+      final clean = file.startsWith('sounds/') ? file : 'sounds/$file';
+      return AssetSource(clean);
+    }
+    if (pathSuara.startsWith('assets/')) {
+      final clean = pathSuara.replaceFirst('assets/', '');
+      return AssetSource(clean);
+    }
+    if (pathSuara.startsWith('sounds/')) {
+      return AssetSource(pathSuara);
     }
     if (pathSuara.startsWith('file:')) {
       return DeviceFileSource(pathSuara.replaceFirst('file:', ''));
@@ -27,14 +54,20 @@ class AudioService {
   }
 
   static bool fileAda(String pathSuara) {
-    if (pathSuara.startsWith('assets:')) return true;
+    if (pathSuara.startsWith('assets:') ||
+        pathSuara.startsWith('assets/') ||
+        pathSuara.startsWith('sounds/')) {
+      return true;
+    }
     final p = pathSuara.startsWith('file:')
         ? pathSuara.replaceFirst('file:', '')
         : pathSuara;
     return File(p).existsSync();
   }
 
-  Future<void> playJadwal(JadwalBel jadwal) {
+  /// Return null jika selesai tanpa error, atau pesan error.
+  /// Error juga di-debugPrint agar terlihat di `flutter run` / logcat.
+  Future<String?> playJadwal(JadwalBel jadwal) {
     return _mainkan(
       pathSuara: jadwal.pathSuara,
       volume: jadwal.volume,
@@ -43,7 +76,7 @@ class AudioService {
     );
   }
 
-  Future<void> preview({
+  Future<String?> preview({
     required String pathSuara,
     required double volume,
     required int pengulangan,
@@ -57,7 +90,7 @@ class AudioService {
     );
   }
 
-  Future<void> belManual({
+  Future<String?> belManual({
     required String pathSuara,
     required double volume,
   }) {
@@ -69,7 +102,7 @@ class AudioService {
     );
   }
 
-  Future<void> _mainkan({
+  Future<String?> _mainkan({
     required String pathSuara,
     required double volume,
     required int pengulangan,
@@ -81,20 +114,54 @@ class AudioService {
 
     final player = AudioPlayer();
     _player = player;
-    await player.setReleaseMode(ReleaseMode.stop);
-    await player.setVolume(volume.clamp(0.0, 1.0));
+    try {
+      await player.setAudioContext(audioContext);
+    } catch (_) {}
+    try {
+      await player.setPlayerMode(PlayerMode.mediaPlayer);
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.setVolume(volume.clamp(0.0, 1.0));
+    } catch (_) {}
 
     final source = resolveSource(pathSuara);
     final ulang = pengulangan < 1 ? 1 : pengulangan;
+    String? error;
 
     try {
       for (var i = 0; i < ulang; i++) {
         if (_stopDiminta || sesiIni != _sesi) break;
-        await player.play(source, volume: volume.clamp(0.0, 1.0));
-        await player.onPlayerComplete.first.timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {},
+        debugPrint('AudioService: play $source (ulang ${i + 1}/$ulang)');
+
+        final selesai = Completer<void>();
+        final sub = player.onPlayerComplete.listen(
+          (_) {
+            if (!selesai.isCompleted) selesai.complete();
+          },
+          onDone: () {
+            if (!selesai.isCompleted) selesai.complete();
+          },
+          onError: (Object e) {
+            if (!selesai.isCompleted) selesai.completeError(e);
+          },
+          cancelOnError: false,
         );
+
+        try {
+          await player.play(source, volume: volume.clamp(0.0, 1.0));
+          Duration? durasi;
+          try {
+            durasi = await player.getDuration();
+          } catch (_) {}
+          final timeoutDurasi = (durasi != null && durasi > Duration.zero)
+              ? durasi + const Duration(seconds: 4)
+              : const Duration(seconds: 15);
+          await selesai.future.timeout(timeoutDurasi);
+        } on TimeoutException {
+          debugPrint('AudioService: timeout tunggu selesai, lanjut');
+        } finally {
+          await sub.cancel();
+        }
+
         if (_stopDiminta || sesiIni != _sesi) break;
         if (i < ulang - 1 && jedaDetik > 0) {
           final ok = await _tungguBisaBatal(
@@ -104,12 +171,16 @@ class AudioService {
           if (!ok) break;
         }
       }
-    } catch (_) {
-      // Abaikan error audio agar tidak crash UI / callback.
+    } catch (e) {
+      error = 'Gagal memutar suara: $e';
+      debugPrint('AudioService ERROR: $e');
     } finally {
       if (identical(_player, player)) _player = null;
-      await player.dispose();
+      try {
+        await player.dispose();
+      } catch (_) {}
     }
+    return error;
   }
 
   /// Tunggu yang bisa dibatalkan via stop(). Dibagi per 200ms.
@@ -147,24 +218,55 @@ class AudioService {
     required int pengulangan,
     required int jedaDetik,
   }) async {
+    debugPrint('AudioService(bg): mulai $pathSuara x$pengulangan');
     final player = AudioPlayer();
     try {
+      try {
+        await player.setAudioContext(audioContext);
+      } catch (_) {}
+      await player.setPlayerMode(PlayerMode.mediaPlayer);
       await player.setReleaseMode(ReleaseMode.stop);
       await player.setVolume(volume.clamp(0.0, 1.0));
       final source = resolveSource(pathSuara);
       final ulang = pengulangan < 1 ? 1 : pengulangan;
       for (var i = 0; i < ulang; i++) {
-        await player.play(source, volume: volume.clamp(0.0, 1.0));
-        await player.onPlayerComplete.first.timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {},
+        final selesai = Completer<void>();
+        final sub = player.onPlayerComplete.listen(
+          (_) {
+            if (!selesai.isCompleted) selesai.complete();
+          },
+          onDone: () {
+            if (!selesai.isCompleted) selesai.complete();
+          },
+          onError: (Object e) {
+            if (!selesai.isCompleted) selesai.completeError(e);
+          },
+          cancelOnError: false,
         );
+
+        try {
+          await player.play(source, volume: volume.clamp(0.0, 1.0));
+          Duration? durasi;
+          try {
+            durasi = await player.getDuration();
+          } catch (_) {}
+          final timeoutDurasi = (durasi != null && durasi > Duration.zero)
+              ? durasi + const Duration(seconds: 4)
+              : const Duration(seconds: 15);
+          await selesai.future.timeout(timeoutDurasi);
+        } on TimeoutException {
+          debugPrint('AudioService(bg): timeout tunggu selesai, lanjut');
+        } finally {
+          await sub.cancel();
+        }
+
         if (i < ulang - 1 && jedaDetik > 0) {
           await Future.delayed(Duration(seconds: jedaDetik));
         }
       }
-    } catch (_) {
-      // Abaikan agar callback alarm tidak crash.
+      debugPrint('AudioService(bg): selesai');
+    } catch (e) {
+      debugPrint('AudioService(bg) ERROR: $e');
     } finally {
       try {
         await player.dispose();

@@ -79,6 +79,25 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
     }
   }
 
+  Future<String?> terapkanJadwalJp(
+    List<JadwalBel> listJadwal, {
+    required List<int> daftarHari,
+    bool gantiJadwalLama = true,
+  }) async {
+    if (listJadwal.isEmpty) return 'Daftar jadwal kosong';
+    try {
+      if (gantiJadwalLama) {
+        await DatabaseService.instance.bersihkanJadwalHari(daftarHari);
+      }
+      await DatabaseService.instance.insertBatch(listJadwal);
+      final terbaru = await DatabaseService.instance.getSemua();
+      await _simpanDanJadwalkan(terbaru);
+      return null;
+    } catch (e) {
+      return 'Gagal menerapkan jadwal: $e';
+    }
+  }
+
   Future<String?> ubah(JadwalBel jadwal) async {
     final err = jadwal.validasi();
     if (err != null) return err;

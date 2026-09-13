@@ -62,6 +62,46 @@ class DatabaseService {
     );
   }
 
+  Future<void> insertBatch(List<JadwalBel> list) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final j in list) {
+      batch.insert(
+        tabelJadwal,
+        j.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Menghapus hari [daftarHariTarget] dari jadwal yang ada.
+  /// Jika jadwal hanya berlaku pada hari tersebut, hapus baris.
+  /// Jika berlaku pada hari lain juga, update daftarHari agar hari lain tidak hilang.
+  Future<void> bersihkanJadwalHari(List<int> daftarHariTarget) async {
+    final semua = await getSemua();
+    final db = await database;
+    final batch = db.batch();
+
+    for (final j in semua) {
+      final sisaHari = j.daftarHari
+          .where((h) => !daftarHariTarget.contains(h))
+          .toList();
+      if (sisaHari.isEmpty) {
+        batch.delete(tabelJadwal, where: 'id = ?', whereArgs: [j.id]);
+      } else if (sisaHari.length != j.daftarHari.length) {
+        final updated = j.copyWith(daftarHari: sisaHari);
+        batch.update(
+          tabelJadwal,
+          updated.toMap(),
+          where: 'id = ?',
+          whereArgs: [j.id],
+        );
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
   Future<void> update(JadwalBel j) async {
     final db = await database;
     await db.update(

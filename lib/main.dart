@@ -6,6 +6,7 @@ import 'package:bel_sekolah_otomatis/providers/pengaturan_provider.dart';
 import 'package:bel_sekolah_otomatis/screens/dashboard_screen.dart';
 import 'package:bel_sekolah_otomatis/screens/jadwal_list_screen.dart';
 import 'package:bel_sekolah_otomatis/screens/pengaturan_screen.dart';
+import 'package:bel_sekolah_otomatis/services/audio_service.dart';
 import 'package:bel_sekolah_otomatis/services/database_service.dart';
 import 'package:bel_sekolah_otomatis/services/notification_service.dart';
 import 'package:bel_sekolah_otomatis/services/permission_service.dart';
@@ -15,6 +16,7 @@ import 'package:bel_sekolah_otomatis/utils/konstanta.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id', null);
+  await AudioService.setupAudio();
   await SchedulerService.init();
   await NotificationService.instance.init();
   await DatabaseService.instance.database;

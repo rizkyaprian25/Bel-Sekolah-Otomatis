@@ -5,6 +5,7 @@ import 'package:bel_sekolah_otomatis/providers/countdown_provider.dart';
 import 'package:bel_sekolah_otomatis/providers/jadwal_provider.dart';
 import 'package:bel_sekolah_otomatis/providers/pengaturan_provider.dart';
 import 'package:bel_sekolah_otomatis/screens/jadwal_form_screen.dart';
+import 'package:bel_sekolah_otomatis/screens/jp_generator_screen.dart';
 import 'package:bel_sekolah_otomatis/widgets/bel_manual_button.dart';
 import 'package:bel_sekolah_otomatis/widgets/countdown_card.dart';
 import 'package:bel_sekolah_otomatis/widgets/jadwal_tile.dart';
@@ -60,6 +61,16 @@ class DashboardScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   const Text('Tidak ada jadwal untuk hari ini.'),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const JpGeneratorScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('Atur Jam Pelajaran (JP)'),
+                  ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).push(
@@ -67,7 +78,7 @@ class DashboardScreen extends ConsumerWidget {
                         builder: (_) => const JadwalFormScreen(),
                       ),
                     ),
-                    child: const Text('Tambah jadwal'),
+                    child: const Text('Tambah jadwal manual'),
                   ),
                 ],
               ),

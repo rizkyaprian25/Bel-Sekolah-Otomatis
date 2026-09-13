@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bel_sekolah_otomatis/providers/jadwal_provider.dart';
 import 'package:bel_sekolah_otomatis/screens/jadwal_form_screen.dart';
+import 'package:bel_sekolah_otomatis/screens/jp_generator_screen.dart';
 import 'package:bel_sekolah_otomatis/widgets/jadwal_tile.dart';
 
 // Daftar semua jadwal + tambah, edit, duplikat, hapus, toggle.
@@ -14,7 +15,21 @@ class JadwalListScreen extends ConsumerWidget {
     final state = ref.watch(jadwalProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Jadwal (${state.semua.length})')),
+      appBar: AppBar(
+        title: Text('Jadwal (${state.semua.length})'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const JpGeneratorScreen()),
+            ),
+            icon: const Icon(Icons.auto_awesome, color: Colors.amberAccent, size: 18),
+            label: const Text(
+              'Atur JP',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(jadwalProvider.notifier).muat(),
         child: _body(context, ref, state),
@@ -50,11 +65,41 @@ class JadwalListScreen extends ConsumerWidget {
     }
     if (state.semua.isEmpty) {
       return ListView(
-        children: const [
-          SizedBox(height: 80),
-          Icon(Icons.alarm_off, size: 48, color: Colors.grey),
-          SizedBox(height: 12),
-          Center(child: Text('Belum ada jadwal. Tekan Tambah.')),
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 40),
+          const Icon(Icons.alarm_off, size: 56, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Center(
+            child: Text(
+              'Belum ada jadwal bel sekolah.',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Center(
+            child: Text(
+              'Susun jadwal pelajaran sekolah secara otomatis atau tambah jadwal satu per satu.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black54, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const JpGeneratorScreen()),
+            ),
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('Atur Jam Pelajaran (JP) Sekolah'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const JadwalFormScreen()),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('Tambah Bel Manual Satu Per Satu'),
+          ),
         ],
       );
     }

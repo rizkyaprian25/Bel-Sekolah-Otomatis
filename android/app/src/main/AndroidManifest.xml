@@ -55,6 +55,21 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- Wajib untuk android_alarm_manager_plus dengan rescheduleOnReboot.
+             Manifest bawaan plugin tidak mendeklarasikannya sehingga
+             setComponentEnabledSetting melempar IllegalArgumentException dan
+             alarm tidak pernah terjadwal. Default disabled, plugin yang
+             meng-enable saat alarm persisten didaftarkan. -->
+        <receiver
+            android:name="dev.fluttercommunity.plus.androidalarmmanager.RebootBroadcastReceiver"
+            android:exported="false"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
