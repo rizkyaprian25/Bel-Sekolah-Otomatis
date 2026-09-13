@@ -100,6 +100,22 @@ class AppKonstanta {
       id: 'assets:ai_pulang.mp3',
       label: 'AI: Waktunya Pulang',
     ),
+    SuaraBawaan(
+      id: 'assets:ai_upacara.mp3',
+      label: 'AI: Upacara Bendera Merah Putih (Jam 7)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_senam.mp3',
+      label: 'AI: Senam Pagi (Jam 7)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_literasi.mp3',
+      label: 'AI: Literasi / Numerasi (Jam 7)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_solat_dhuha.mp3',
+      label: 'AI: Solat Duha Bersama (Jam 7)',
+    ),
 
     // Nada Bel Klasik & Digital
     SuaraBawaan(id: 'assets:bel_klasik.wav', label: 'Nada: Bel Klasik'),
@@ -112,12 +128,18 @@ class AppKonstanta {
   static const String notifChannelName = 'Bel Sekolah';
   static const String notifChannelDesc = 'Notifikasi saat bel berbunyi';
 
+  static const String notifStatusChannelId = 'bel_sekolah_status_channel';
+  static const String notifStatusChannelName = 'Status Bel Sekolah';
+  static const String notifStatusChannelDesc = 'Status pemantauan bel di latar belakang';
+  static const int notifStatusId = 888;
+
   // SharedPreferences keys.
   static const String keyModeSenyap = 'mode_senyap';
   static const String keyTanggalLibur = 'tanggal_libur';
   static const String keyManualSuara = 'manual_suara';
   static const String keyManualVolume = 'manual_volume';
   static const String keyIzinDiminta = 'izin_awal_diminta';
+  static const String keyNotifStatusAktif = 'notif_status_aktif';
 
   // Batas validasi.
   static const int minPengulangan = 1;

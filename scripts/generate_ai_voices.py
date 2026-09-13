@@ -87,6 +87,26 @@ ITEMS = [
         "text": "Waktunya pulang.",
         "label": "AI - Waktunya Pulang",
     },
+    {
+        "filename": "ai_upacara.mp3",
+        "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan menuju ke lapangan untuk melaksanakan upacara bendera merah putih.",
+        "label": "AI - Upacara Bendera Merah Putih",
+    },
+    {
+        "filename": "ai_senam.mp3",
+        "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan menuju ke lapangan untuk melaksanakan senam pagi.",
+        "label": "AI - Senam Pagi",
+    },
+    {
+        "filename": "ai_literasi.mp3",
+        "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan menuju ke lapangan untuk melaksanakan literasi atau numerasi.",
+        "label": "AI - Literasi atau Numerasi",
+    },
+    {
+        "filename": "ai_solat_dhuha.mp3",
+        "text": "Jam menunjukkan pukul 7, seluruh siswa diharapkan menuju ke lapangan untuk melaksanakan solat duha bersama.",
+        "label": "AI - Solat Duha Bersama",
+    },
 ]
 
 def maximize_audio_volume(file_path):

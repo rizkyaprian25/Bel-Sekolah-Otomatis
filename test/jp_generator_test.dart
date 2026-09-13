@@ -222,4 +222,22 @@ void main() {
     expect(decoded.durasiIstirahat1Menit, 25);
     expect(decoded.durasiIstirahat2Menit, 35);
   });
+
+  test('JpGeneratorConfig memetakan kegiatan awal Upacara, Senam, Literasi, Solat Duha ke suara AI yang sesuai', () {
+    for (final pair in [
+      ('Upacara Bendera Merah Putih', 'assets:ai_upacara.mp3'),
+      ('Senam Pagi', 'assets:ai_senam.mp3'),
+      ('Literasi atau Numerasi', 'assets:ai_literasi.mp3'),
+      ('Solat Duha Bersama', 'assets:ai_solat_dhuha.mp3'),
+    ]) {
+      final config = JpGeneratorConfig(
+        daftarHari: const [1],
+        adaKegiatanAwal: true,
+        namaKegiatanAwal: pair.$1,
+        gunakanSuaraAi: true,
+      );
+      final items = config.buatPratinjau();
+      expect(items.first.pathSuara, pair.$2);
+    }
+  });
 }

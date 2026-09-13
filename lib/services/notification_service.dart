@@ -25,11 +25,21 @@ class NotificationService {
       importance: Importance.max,
       playSound: false,
     );
-    await _plugin
+    const statusChannel = AndroidNotificationChannel(
+      AppKonstanta.notifStatusChannelId,
+      AppKonstanta.notifStatusChannelName,
+      description: AppKonstanta.notifStatusChannelDesc,
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+      showBadge: false,
+    );
+    final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+        >();
+    await androidPlugin?.createNotificationChannel(channel);
+    await androidPlugin?.createNotificationChannel(statusChannel);
     _siap = true;
   }
 
@@ -47,6 +57,43 @@ class NotificationService {
     );
     const detail = NotificationDetails(android: android);
     await _plugin.show(id, 'Bel berbunyi: $nama', 'Pukul $jamLabel', detail);
+  }
+
+  /// Notifikasi persisten bergaya media player untuk status latar belakang.
+  Future<void> perbaruiNotifikasiStatus({
+    required String judul,
+    required String pesan,
+    String? subteks,
+  }) async {
+    await init();
+    final android = AndroidNotificationDetails(
+      AppKonstanta.notifStatusChannelId,
+      AppKonstanta.notifStatusChannelName,
+      channelDescription: AppKonstanta.notifStatusChannelDesc,
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      autoCancel: false,
+      showWhen: false,
+      subText: subteks,
+      category: AndroidNotificationCategory.transport,
+      styleInformation: const MediaStyleInformation(
+        htmlFormatContent: false,
+        htmlFormatTitle: false,
+      ),
+    );
+    final detail = NotificationDetails(android: android);
+    await _plugin.show(
+      AppKonstanta.notifStatusId,
+      judul,
+      pesan,
+      detail,
+    );
+  }
+
+  Future<void> hapusNotifikasiStatus() async {
+    await init();
+    await _plugin.cancel(AppKonstanta.notifStatusId);
   }
 
   /// Versi untuk background isolate (buat instance plugin baru).
@@ -70,5 +117,48 @@ class NotificationService {
     const detail = NotificationDetails(android: android);
     final id = DateTime.now().millisecondsSinceEpoch ~/ 1000 % 2147483647;
     await plugin.show(id, 'Bel berbunyi: $nama', 'Pukul $jamLabel', detail);
+  }
+
+  /// Versi status untuk background isolate.
+  static Future<void> perbaruiNotifikasiStatusDiBackground({
+    required String judul,
+    required String pesan,
+    String? subteks,
+  }) async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await plugin.initialize(initSettings);
+    final android = AndroidNotificationDetails(
+      AppKonstanta.notifStatusChannelId,
+      AppKonstanta.notifStatusChannelName,
+      channelDescription: AppKonstanta.notifStatusChannelDesc,
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      autoCancel: false,
+      showWhen: false,
+      subText: subteks,
+      category: AndroidNotificationCategory.transport,
+      styleInformation: const MediaStyleInformation(
+        htmlFormatContent: false,
+        htmlFormatTitle: false,
+      ),
+    );
+    final detail = NotificationDetails(android: android);
+    await plugin.show(
+      AppKonstanta.notifStatusId,
+      judul,
+      pesan,
+      detail,
+    );
+  }
+
+  static Future<void> hapusNotifikasiStatusDiBackground() async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await plugin.initialize(initSettings);
+    await plugin.cancel(AppKonstanta.notifStatusId);
   }
 }

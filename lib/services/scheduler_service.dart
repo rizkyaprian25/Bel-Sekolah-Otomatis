@@ -52,6 +52,7 @@ class SchedulerService {
     await _batalkanLama();
     if (atur.modeSenyap) {
       await _simpanIds(const []);
+      await perbaruiStatusNotifikasi(daftarJadwal: semua);
       return;
     }
     final now = DateTime.now();
@@ -99,6 +100,7 @@ class SchedulerService {
       }
     }
     await _simpanIds(ids);
+    await perbaruiStatusNotifikasi(daftarJadwal: semua);
   }
 
   static int _alarmId(String jadwalId, DateTime tanggal) {
@@ -181,6 +183,119 @@ class SchedulerService {
     }
     return hasil;
   }
+
+  /// Memperbarui notifikasi status persisten (bergaya media player).
+  /// Dapat dipanggil dari UI isolate atau background isolate.
+  static Future<void> perbaruiStatusNotifikasi({
+    List<JadwalBel>? daftarJadwal,
+    bool diBackground = false,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final statusAktif =
+          prefs.getBool(AppKonstanta.keyNotifStatusAktif) ?? true;
+      if (!statusAktif) {
+        if (diBackground) {
+          await NotificationService.hapusNotifikasiStatusDiBackground();
+        } else {
+          await NotificationService.instance.hapusNotifikasiStatus();
+        }
+        return;
+      }
+
+      final atur = await bacaPengaturan();
+      if (atur.modeSenyap) {
+        const judul = '🔔 Bel Sekolah: Mode Senyap';
+        const pesan = 'Suara bel dinonaktifkan sementara';
+        if (diBackground) {
+          await NotificationService.perbaruiNotifikasiStatusDiBackground(
+            judul: judul,
+            pesan: pesan,
+            subteks: 'Mode Senyap',
+          );
+        } else {
+          await NotificationService.instance.perbaruiNotifikasiStatus(
+            judul: judul,
+            pesan: pesan,
+            subteks: 'Mode Senyap',
+          );
+        }
+        return;
+      }
+
+      List<JadwalBel> semua = daftarJadwal ?? [];
+      if (daftarJadwal == null) {
+        final db = await DatabaseService.openDb();
+        try {
+          final maps = await db.query(
+            DatabaseService.tabelJadwal,
+            orderBy: 'jam ASC, menit ASC',
+          );
+          semua = maps.map(JadwalBel.fromMap).toList();
+        } finally {
+          try {
+            await db.close();
+          } catch (_) {}
+        }
+      }
+
+      final now = DateTime.now();
+      final berikutnya = cariBerikutnya(semua, atur, now);
+
+      String judul = '🔔 Bel Sekolah Aktif';
+      String pesan = 'Sistem memantau jadwal di latar belakang';
+      String? subteks;
+
+      if (berikutnya != null) {
+        final selisih = berikutnya.waktu.difference(now);
+        final hariSama = berikutnya.waktu.day == now.day &&
+            berikutnya.waktu.month == now.month &&
+            berikutnya.waktu.year == now.year;
+
+        final jamStr = berikutnya.jadwal.jamLabel;
+        final namaStr = berikutnya.jadwal.nama;
+
+        if (hariSama) {
+          pesan = 'Berikutnya: $jamStr • $namaStr';
+          if (selisih.inMinutes <= 60) {
+            subteks = '${selisih.inMinutes} mnt lagi';
+          } else {
+            final jam = selisih.inHours;
+            final mnt = selisih.inMinutes % 60;
+            subteks = '$jam jam $mnt mnt lagi';
+          }
+        } else {
+          final namaHari = AppKonstanta.namaHari[berikutnya.waktu.weekday];
+          pesan = 'Berikutnya ($namaHari): $jamStr • $namaStr';
+          subteks = namaHari;
+        }
+      } else {
+        if (atur.tanggalLibur.contains(tanggalKey(now))) {
+          pesan = 'Hari ini libur sekolah • Siap untuk hari aktif';
+          subteks = 'Libur Sekolah';
+        } else {
+          pesan = 'Semua bel hari ini telah selesai';
+          subteks = 'Selesai';
+        }
+      }
+
+      if (diBackground) {
+        await NotificationService.perbaruiNotifikasiStatusDiBackground(
+          judul: judul,
+          pesan: pesan,
+          subteks: subteks,
+        );
+      } else {
+        await NotificationService.instance.perbaruiNotifikasiStatus(
+          judul: judul,
+          pesan: pesan,
+          subteks: subteks,
+        );
+      }
+    } catch (e) {
+      debugPrint('perbaruiStatusNotifikasi error: $e');
+    }
+  }
 }
 
 class BelBerikutnya {
@@ -251,6 +366,9 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
       pengulangan: jadwal.jumlahPengulangan,
       jedaDetik: jadwal.jedaDetik,
     );
+
+    // Perbarui status notifikasi media bar ke bel berikutnya
+    await SchedulerService.perbaruiStatusNotifikasi(diBackground: true);
   } catch (e) {
     // Jangan lempar error dari background isolate, cukup catat.
     debugPrint('alarmCallback ERROR: $e');

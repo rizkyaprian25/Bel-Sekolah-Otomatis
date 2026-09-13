@@ -563,6 +563,33 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      'Upacara Bendera',
+                      'Senam Pagi',
+                      'Literasi atau Numerasi',
+                      'Solat Duha Bersama',
+                    ].map((kegiatan) {
+                      final isSelected =
+                          _namaKegiatanAwalCtrl.text.toLowerCase() ==
+                              kegiatan.toLowerCase();
+                      return ChoiceChip(
+                        label: Text(kegiatan,
+                            style: const TextStyle(fontSize: 12)),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _namaKegiatanAwalCtrl.text = kegiatan;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
                   const SizedBox(height: 10),
                   _buildDurasiInputCustom(
                     label: 'Durasi Kegiatan:',

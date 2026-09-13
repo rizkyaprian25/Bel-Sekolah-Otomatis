@@ -54,6 +54,7 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
     try {
       final data = await DatabaseService.instance.getSemua();
       state = JadwalState(semua: data);
+      await SchedulerService.perbaruiStatusNotifikasi(daftarJadwal: data);
     } catch (e) {
       state = JadwalState(semua: state.semua, error: 'Gagal memuat: $e');
     }

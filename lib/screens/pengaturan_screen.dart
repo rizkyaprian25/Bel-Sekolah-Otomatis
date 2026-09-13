@@ -9,6 +9,7 @@ import 'package:bel_sekolah_otomatis/services/file_sound_service.dart';
 import 'package:bel_sekolah_otomatis/services/permission_service.dart';
 import 'package:bel_sekolah_otomatis/services/scheduler_service.dart';
 import 'package:bel_sekolah_otomatis/utils/konstanta.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Pengaturan umum: mode senyap, izin, bel manual, tanggal libur.
 class PengaturanScreen extends ConsumerStatefulWidget {
@@ -21,11 +22,23 @@ class PengaturanScreen extends ConsumerStatefulWidget {
 class _PengaturanScreenState extends ConsumerState<PengaturanScreen> {
   StatusIzin? _izin;
   bool _testBunyi = false;
+  bool _notifStatusAktif = true;
 
   @override
   void initState() {
     super.initState();
     _muatIzin();
+    _muatPengaturanLain();
+  }
+
+  Future<void> _muatPengaturanLain() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _notifStatusAktif =
+            prefs.getBool(AppKonstanta.keyNotifStatusAktif) ?? true;
+      });
+    }
   }
 
   Future<void> _muatIzin() async {
@@ -106,6 +119,28 @@ class _PengaturanScreenState extends ConsumerState<PengaturanScreen> {
             value: atur.modeSenyap,
             onChanged: (v) =>
                 ref.read(pengaturanProvider.notifier).setModeSenyap(v),
+          ),
+        ),
+        _kartu(
+          title: 'Notifikasi status latar belakang',
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(
+              Icons.music_note_rounded,
+              color: Color(AppKonstanta.navy),
+            ),
+            title: const Text('Bilah status bergaya media player'),
+            subtitle: const Text(
+              'Menampilkan notifikasi persisten di status bar agar terlihat '
+              'bel aktif memantau jadwal di latar belakang.',
+            ),
+            value: _notifStatusAktif,
+            onChanged: (v) async {
+              setState(() => _notifStatusAktif = v);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool(AppKonstanta.keyNotifStatusAktif, v);
+              await SchedulerService.perbaruiStatusNotifikasi();
+            },
           ),
         ),
         _kartu(

@@ -290,6 +290,28 @@ class JpGeneratorConfig {
 
     // 1. Bel Masuk / Kegiatan Awal
     if (adaKegiatanAwal) {
+      String suaraKegiatan;
+      if (gunakanSuaraAi) {
+        final namaLower = namaKegiatanAwal.toLowerCase();
+        if (namaLower.contains('upacara')) {
+          suaraKegiatan = 'assets:ai_upacara.mp3';
+        } else if (namaLower.contains('senam')) {
+          suaraKegiatan = 'assets:ai_senam.mp3';
+        } else if (namaLower.contains('literasi') ||
+            namaLower.contains('numerasi')) {
+          suaraKegiatan = 'assets:ai_literasi.mp3';
+        } else if (namaLower.contains('solat') ||
+            namaLower.contains('sholat') ||
+            namaLower.contains('duha') ||
+            namaLower.contains('dhuha')) {
+          suaraKegiatan = 'assets:ai_solat_dhuha.mp3';
+        } else {
+          suaraKegiatan = 'assets:ai_masuk_jp1.mp3';
+        }
+      } else {
+        suaraKegiatan = suaraMasuk;
+      }
+
       list.add(
         ItemPratinjauJp(
           nama: 'Bel Masuk - $namaKegiatanAwal',
@@ -297,7 +319,7 @@ class JpGeneratorConfig {
           menit: current.minute,
           tipe: TipeItemJp.upacara,
           keterangan: 'Durasi $durasiKegiatanAwalMenit menit',
-          pathSuara: gunakanSuaraAi ? 'assets:ai_masuk_jp1.mp3' : suaraMasuk,
+          pathSuara: suaraKegiatan,
         ),
       );
       current = current.add(Duration(minutes: durasiKegiatanAwalMenit));
