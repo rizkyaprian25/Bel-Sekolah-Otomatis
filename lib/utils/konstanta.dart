@@ -35,9 +35,76 @@ class AppKonstanta {
   // Suara bawaan. Format path "assets:namafile" agar gampang dibedakan
   // dari file custom ("file:/path/ke/file.mp3").
   static const List<SuaraBawaan> suaraBawaan = [
-    SuaraBawaan(id: 'assets:bel_klasik.wav', label: 'Bel Klasik'),
-    SuaraBawaan(id: 'assets:bel_digital.wav', label: 'Bel Digital'),
-    SuaraBawaan(id: 'assets:bel_panjang.wav', label: 'Bel Panjang'),
+    // Suara AI Sekolah
+    SuaraBawaan(
+      id: 'assets:ai_masuk_jp1.mp3',
+      label: 'AI: Masuk Jam Ke-1 (Masuk Kelas)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_2.mp3',
+      label: 'AI: Memasuki Jam Ke-2',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_3.mp3',
+      label: 'AI: Memasuki Jam Ke-3',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_4.mp3',
+      label: 'AI: Memasuki Jam Ke-4',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_5.mp3',
+      label: 'AI: Memasuki Jam Ke-5',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_6.mp3',
+      label: 'AI: Memasuki Jam Ke-6',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_7.mp3',
+      label: 'AI: Memasuki Jam Ke-7',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_8.mp3',
+      label: 'AI: Memasuki Jam Ke-8',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_9.mp3',
+      label: 'AI: Memasuki Jam Ke-9',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_jam_ke_10.mp3',
+      label: 'AI: Memasuki Jam Ke-10',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_istirahat.mp3',
+      label: 'AI: Waktunya Istirahat',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_istirahat2_mbg.mp3',
+      label: 'AI: Istirahat Ke-2 (Pengambilan MBG)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_mbg_jumat.mp3',
+      label: 'AI: Pengambilan MBG Jumat (Jam 11)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_selesai_istirahat_jp5.mp3',
+      label: 'AI: Selesai Istirahat (Masuk JP 5)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_selesai_istirahat_umum.mp3',
+      label: 'AI: Selesai Istirahat (Masuk Kelas)',
+    ),
+    SuaraBawaan(
+      id: 'assets:ai_pulang.mp3',
+      label: 'AI: Waktunya Pulang',
+    ),
+
+    // Nada Bel Klasik & Digital
+    SuaraBawaan(id: 'assets:bel_klasik.wav', label: 'Nada: Bel Klasik'),
+    SuaraBawaan(id: 'assets:bel_digital.wav', label: 'Nada: Bel Digital'),
+    SuaraBawaan(id: 'assets:bel_panjang.wav', label: 'Nada: Bel Panjang'),
   ];
 
   // Notifikasi.

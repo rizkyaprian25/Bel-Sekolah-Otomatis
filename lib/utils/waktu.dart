@@ -55,3 +55,11 @@ DateTime waktuBerikutnya(int jam, int menit, {DateTime? dari}) {
 bool berlakuPadaTanggal(List<int> daftarHari, DateTime t) {
   return daftarHari.contains(t.weekday);
 }
+
+/// Tambah atau kurangi menit pada (jam, menit), menghasilkan (jam, menit) baru (0-23, 0-59).
+({int jam, int menit}) tambahMenit(int jam, int menit, int selisihMenit) {
+  final total = (jam * 60 + menit + selisihMenit);
+  final normalized = (total % 1440 + 1440) % 1440;
+  return (jam: normalized ~/ 60, menit: normalized % 60);
+}
+

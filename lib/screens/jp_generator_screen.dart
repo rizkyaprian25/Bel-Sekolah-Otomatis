@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bel_sekolah_otomatis/models/jp_generator_config.dart';
@@ -9,7 +10,14 @@ import 'package:bel_sekolah_otomatis/utils/waktu.dart';
 import 'package:bel_sekolah_otomatis/widgets/hari_picker.dart';
 
 class JpGeneratorScreen extends ConsumerStatefulWidget {
-  const JpGeneratorScreen({super.key});
+  final JpGeneratorConfig? initialConfig;
+  final List<int>? initialHari;
+
+  const JpGeneratorScreen({
+    super.key,
+    this.initialConfig,
+    this.initialHari,
+  });
 
   @override
   ConsumerState<JpGeneratorScreen> createState() => _JpGeneratorScreenState();
@@ -28,26 +36,38 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
   final TextEditingController _namaKegiatanAwalCtrl =
       TextEditingController(text: 'Upacara Bendera');
   int _durasiKegiatanAwal = 45;
+  final TextEditingController _durasiKegiatanAwalCtrl =
+      TextEditingController(text: '45');
 
   // Jam Pelajaran (JP)
   int _jumlahJp = 9;
   int _durasiJp = 35;
+  final TextEditingController _durasiJpCtrl =
+      TextEditingController(text: '35');
 
   // Istirahat 1
   bool _istirahat1Aktif = true;
   int _setelahJp1 = 4;
   int _durasiIstirahat1 = 30;
+  final TextEditingController _durasiIstirahat1Ctrl =
+      TextEditingController(text: '30');
 
   // Istirahat 2 (Opsional / Dzuhur)
   bool _istirahat2Aktif = false;
   int _setelahJp2 = 7;
   int _durasiIstirahat2 = 30;
+  final TextEditingController _durasiIstirahat2Ctrl =
+      TextEditingController(text: '30');
 
-  // Suara Bel
-  String _suaraMasuk = 'assets:bel_panjang.wav';
-  String _suaraPergantian = 'assets:bel_klasik.wav';
-  String _suaraIstirahat = 'assets:bel_digital.wav';
-  String _suaraPulang = 'assets:bel_panjang.wav';
+  // Khusus Jumat: Pengambilan MBG pukul 11:00
+  bool _mbgJumatAktif = true;
+
+  // Suara Bel & AI
+  bool _gunakanSuaraAi = true;
+  String _suaraMasuk = 'assets:ai_masuk_jp1.mp3';
+  String _suaraPergantian = 'assets:ai_jam_ke_2.mp3';
+  String _suaraIstirahat = 'assets:ai_istirahat.mp3';
+  String _suaraPulang = 'assets:ai_pulang.mp3';
 
   // Opsi ganti jadwal lama
   bool _gantiJadwalLama = true;
@@ -56,13 +76,60 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
   String? _suaraPreviewId;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.initialHari != null && widget.initialHari!.isNotEmpty) {
+      _daftarHari = List.from(widget.initialHari!);
+    }
+    if (widget.initialConfig != null) {
+      final c = widget.initialConfig!;
+      _daftarHari = widget.initialHari ?? List.from(c.daftarHari);
+      _jamMulai = c.jamMulai;
+      _menitMulai = c.menitMulai;
+      _adaKegiatanAwal = c.adaKegiatanAwal;
+      _namaKegiatanAwalCtrl.text = c.namaKegiatanAwal;
+      _durasiKegiatanAwal = c.durasiKegiatanAwalMenit;
+      _durasiKegiatanAwalCtrl.text = c.durasiKegiatanAwalMenit.toString();
+      _jumlahJp = c.jumlahJp;
+      _durasiJp = c.durasiJpMenit;
+      _durasiJpCtrl.text = c.durasiJpMenit.toString();
+      _istirahat1Aktif = c.istirahat1Aktif;
+      _setelahJp1 = c.setelahJpKe1;
+      _durasiIstirahat1 = c.durasiIstirahat1Menit;
+      _durasiIstirahat1Ctrl.text = c.durasiIstirahat1Menit.toString();
+      _istirahat2Aktif = c.istirahat2Aktif;
+      _setelahJp2 = c.setelahJpKe2;
+      _durasiIstirahat2 = c.durasiIstirahat2Menit;
+      _durasiIstirahat2Ctrl.text = c.durasiIstirahat2Menit.toString();
+      _mbgJumatAktif = c.mbgJumatAktif;
+      _gunakanSuaraAi = c.gunakanSuaraAi;
+      _suaraMasuk = c.suaraMasuk;
+      _suaraPergantian = c.suaraPergantian;
+      _suaraIstirahat = c.suaraIstirahat;
+      _suaraPulang = c.suaraPulang;
+    }
+  }
+
+  @override
   void dispose() {
     _namaKegiatanAwalCtrl.dispose();
+    _durasiKegiatanAwalCtrl.dispose();
+    _durasiJpCtrl.dispose();
+    _durasiIstirahat1Ctrl.dispose();
+    _durasiIstirahat2Ctrl.dispose();
     AudioService.instance.stop();
     super.dispose();
   }
 
   JpGeneratorConfig _buatConfig() {
+    final durasiAwal =
+        int.tryParse(_durasiKegiatanAwalCtrl.text) ?? _durasiKegiatanAwal;
+    final durasiJp = int.tryParse(_durasiJpCtrl.text) ?? _durasiJp;
+    final durasiIst1 =
+        int.tryParse(_durasiIstirahat1Ctrl.text) ?? _durasiIstirahat1;
+    final durasiIst2 =
+        int.tryParse(_durasiIstirahat2Ctrl.text) ?? _durasiIstirahat2;
+
     return JpGeneratorConfig(
       daftarHari: _daftarHari,
       jamMulai: _jamMulai,
@@ -71,15 +138,17 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
       namaKegiatanAwal: _namaKegiatanAwalCtrl.text.trim().isEmpty
           ? 'Upacara'
           : _namaKegiatanAwalCtrl.text.trim(),
-      durasiKegiatanAwalMenit: _durasiKegiatanAwal,
+      durasiKegiatanAwalMenit: durasiAwal.clamp(1, 240),
       jumlahJp: _jumlahJp,
-      durasiJpMenit: _durasiJp,
+      durasiJpMenit: durasiJp.clamp(1, 180),
       istirahat1Aktif: _istirahat1Aktif,
       setelahJpKe1: _setelahJp1,
-      durasiIstirahat1Menit: _durasiIstirahat1,
+      durasiIstirahat1Menit: durasiIst1.clamp(1, 240),
       istirahat2Aktif: _istirahat2Aktif,
       setelahJpKe2: _setelahJp2,
-      durasiIstirahat2Menit: _durasiIstirahat2,
+      durasiIstirahat2Menit: durasiIst2.clamp(1, 240),
+      mbgJumatAktif: _mbgJumatAktif,
+      gunakanSuaraAi: _gunakanSuaraAi,
       suaraMasuk: _suaraMasuk,
       suaraPergantian: _suaraPergantian,
       suaraIstirahat: _suaraIstirahat,
@@ -94,32 +163,180 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
         _adaKegiatanAwal = true;
         _namaKegiatanAwalCtrl.text = 'Upacara Bendera';
         _durasiKegiatanAwal = 45;
+        _durasiKegiatanAwalCtrl.text = '45';
         _jumlahJp = 9;
         _durasiJp = 35;
+        _durasiJpCtrl.text = '35';
         _istirahat1Aktif = true;
         _setelahJp1 = 4;
         _durasiIstirahat1 = 30;
-        _istirahat2Aktif = false;
+        _durasiIstirahat1Ctrl.text = '30';
+        _istirahat2Aktif = true;
+        _setelahJp2 = 7;
+        _durasiIstirahat2 = 30;
+        _durasiIstirahat2Ctrl.text = '30';
+        _mbgJumatAktif = false;
       } else if (jenis == 'senin_kamis') {
         _daftarHari = [1, 2, 3, 4];
         _adaKegiatanAwal = false;
         _jumlahJp = 9;
         _durasiJp = 35;
+        _durasiJpCtrl.text = '35';
         _istirahat1Aktif = true;
         _setelahJp1 = 4;
         _durasiIstirahat1 = 30;
-        _istirahat2Aktif = false;
+        _durasiIstirahat1Ctrl.text = '30';
+        _istirahat2Aktif = true;
+        _setelahJp2 = 7;
+        _durasiIstirahat2 = 30;
+        _durasiIstirahat2Ctrl.text = '30';
+        _mbgJumatAktif = false;
       } else if (jenis == 'jumat') {
         _daftarHari = [5];
         _adaKegiatanAwal = false;
         _jumlahJp = 5;
         _durasiJp = 30;
+        _durasiJpCtrl.text = '30';
         _istirahat1Aktif = true;
         _setelahJp1 = 3;
         _durasiIstirahat1 = 25;
+        _durasiIstirahat1Ctrl.text = '25';
         _istirahat2Aktif = false;
+        _durasiIstirahat2 = 30;
+        _durasiIstirahat2Ctrl.text = '30';
+        _mbgJumatAktif = true;
       }
     });
+  }
+
+  Widget _buildDurasiInputCustom({
+    required String label,
+    required TextEditingController controller,
+    required int value,
+    required ValueChanged<int> onChanged,
+    required List<int> quickPresets,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.remove, size: 16),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: value > 1 ? () => onChanged(value - 1) : null,
+                  tooltip: '-1 menit',
+                ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 85,
+                  child: TextFormField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(3),
+                    ],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      suffixText: 'm',
+                      suffixStyle: const TextStyle(fontSize: 12),
+                    ),
+                    onChanged: (text) {
+                      final val = int.tryParse(text);
+                      if (val != null && val > 0) {
+                        onChanged(val);
+                      }
+                    },
+                    onEditingComplete: () {
+                      if (controller.text.isEmpty ||
+                          (int.tryParse(controller.text) ?? 0) <= 0) {
+                        controller.text = value.toString();
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.add, size: 16),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: value < 240 ? () => onChanged(value + 1) : null,
+                  tooltip: '+1 menit',
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              const Text(
+                'Pilihan cepat: ',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+              ...quickPresets.map((m) {
+                final isSelected = value == m;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ActionChip(
+                    label: Text(
+                      '$m mnt',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.black87,
+                      ),
+                    ),
+                    backgroundColor: isSelected
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Colors.white,
+                    side: BorderSide(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey.shade300,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    onPressed: () => onChanged(m),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _pilihJamMulai() async {
@@ -208,6 +425,10 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
         SnackBar(content: Text(err), backgroundColor: Colors.red.shade700),
       );
     } else {
+      for (final h in _daftarHari) {
+        await JpGeneratorConfig.simpanConfigHari(h, config);
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -343,26 +564,20 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Text('Durasi Kegiatan: '),
-                      const Spacer(),
-                      DropdownButton<int>(
-                        value: _durasiKegiatanAwal,
-                        items: const [
-                          DropdownMenuItem(value: 15, child: Text('15 Menit')),
-                          DropdownMenuItem(value: 30, child: Text('30 Menit')),
-                          DropdownMenuItem(value: 40, child: Text('40 Menit')),
-                          DropdownMenuItem(value: 45, child: Text('45 Menit')),
-                          DropdownMenuItem(value: 60, child: Text('60 Menit')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _durasiKegiatanAwal = v);
-                          }
-                        },
-                      ),
-                    ],
+                  _buildDurasiInputCustom(
+                    label: 'Durasi Kegiatan:',
+                    controller: _durasiKegiatanAwalCtrl,
+                    value: _durasiKegiatanAwal,
+                    quickPresets: const [15, 30, 40, 45, 60],
+                    onChanged: (val) {
+                      final v = val.clamp(5, 180);
+                      setState(() {
+                        _durasiKegiatanAwal = v;
+                        if (_durasiKegiatanAwalCtrl.text != v.toString()) {
+                          _durasiKegiatanAwalCtrl.text = v.toString();
+                        }
+                      });
+                    },
                   ),
                 ],
               ],
@@ -409,28 +624,20 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Durasi 1 JP:',
-                      style: TextStyle(fontSize: 15),
-                    ),
-                    DropdownButton<int>(
-                      value: _durasiJp,
-                      items: const [
-                        DropdownMenuItem(value: 25, child: Text('25 Menit')),
-                        DropdownMenuItem(value: 30, child: Text('30 Menit')),
-                        DropdownMenuItem(value: 35, child: Text('35 Menit')),
-                        DropdownMenuItem(value: 40, child: Text('40 Menit')),
-                        DropdownMenuItem(value: 45, child: Text('45 Menit')),
-                        DropdownMenuItem(value: 50, child: Text('50 Menit')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) setState(() => _durasiJp = v);
-                      },
-                    ),
-                  ],
+                _buildDurasiInputCustom(
+                  label: 'Durasi 1 JP:',
+                  controller: _durasiJpCtrl,
+                  value: _durasiJp,
+                  quickPresets: const [20, 25, 30, 35, 40, 45, 50],
+                  onChanged: (val) {
+                    final v = val.clamp(5, 180);
+                    setState(() {
+                      _durasiJp = v;
+                      if (_durasiJpCtrl.text != v.toString()) {
+                        _durasiJpCtrl.text = v.toString();
+                      }
+                    });
+                  },
                 ),
               ],
             ),
@@ -493,33 +700,30 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                             ),
                           ],
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Durasi Istirahat:'),
-                            DropdownButton<int>(
-                              value: _durasiIstirahat1,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: 15, child: Text('15 Menit')),
-                                DropdownMenuItem(
-                                    value: 20, child: Text('20 Menit')),
-                                DropdownMenuItem(
-                                    value: 25, child: Text('25 Menit')),
-                                DropdownMenuItem(
-                                    value: 30, child: Text('30 Menit')),
-                                DropdownMenuItem(
-                                    value: 40, child: Text('40 Menit')),
-                                DropdownMenuItem(
-                                    value: 45, child: Text('45 Menit')),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(() => _durasiIstirahat1 = v);
-                                }
-                              },
-                            ),
+                        const SizedBox(height: 8),
+                        _buildDurasiInputCustom(
+                          label: 'Durasi Istirahat 1:',
+                          controller: _durasiIstirahat1Ctrl,
+                          value: _durasiIstirahat1,
+                          quickPresets: const [
+                            10,
+                            15,
+                            20,
+                            25,
+                            30,
+                            40,
+                            45,
+                            60
                           ],
+                          onChanged: (val) {
+                            final v = val.clamp(1, 240);
+                            setState(() {
+                              _durasiIstirahat1 = v;
+                              if (_durasiIstirahat1Ctrl.text != v.toString()) {
+                                _durasiIstirahat1Ctrl.text = v.toString();
+                              }
+                            });
+                          },
                         ),
                       ],
                     ],
@@ -540,8 +744,12 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text(
-                          'Istirahat 2 (Sholat Dzuhur / Makan)',
+                          'Istirahat 2 (Pengambilan MBG / Dzuhur)',
                           style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: const Text(
+                          'Suara AI: "Waktunya istirahat kedua. Diharapkan perwakilan masing-masing kelas untuk mengambil MBG."',
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
                         ),
                         value: _istirahat2Aktif,
                         onChanged: (v) => setState(() => _istirahat2Aktif = v),
@@ -557,7 +765,9 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                                 _jumlahJp - 1,
                               ),
                               items: [
-                                for (var i = _setelahJp1 + 1; i < _jumlahJp; i++)
+                                for (var i = _setelahJp1 + 1;
+                                    i < _jumlahJp;
+                                    i++)
                                   DropdownMenuItem(
                                     value: i,
                                     child: Text('Setelah JP $i'),
@@ -571,36 +781,53 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
                             ),
                           ],
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Durasi Istirahat 2:'),
-                            DropdownButton<int>(
-                              value: _durasiIstirahat2,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: 20, child: Text('20 Menit')),
-                                DropdownMenuItem(
-                                    value: 30, child: Text('30 Menit')),
-                                DropdownMenuItem(
-                                    value: 40, child: Text('40 Menit')),
-                                DropdownMenuItem(
-                                    value: 45, child: Text('45 Menit')),
-                                DropdownMenuItem(
-                                    value: 60, child: Text('60 Menit')),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(() => _durasiIstirahat2 = v);
-                                }
-                              },
-                            ),
-                          ],
+                        const SizedBox(height: 8),
+                        _buildDurasiInputCustom(
+                          label: 'Durasi Istirahat 2:',
+                          controller: _durasiIstirahat2Ctrl,
+                          value: _durasiIstirahat2,
+                          quickPresets: const [15, 20, 30, 40, 45, 60],
+                          onChanged: (val) {
+                            final v = val.clamp(1, 240);
+                            setState(() {
+                              _durasiIstirahat2 = v;
+                              if (_durasiIstirahat2Ctrl.text != v.toString()) {
+                                _durasiIstirahat2Ctrl.text = v.toString();
+                              }
+                            });
+                          },
                         ),
                       ],
                     ],
                   ),
                 ),
+
+                // MBG Khusus Jumat pukul 11:00
+                if (_daftarHari.contains(5)) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.restaurant, color: Colors.deepOrange),
+                      title: const Text(
+                        'Bel Pengambilan MBG Khusus Jumat (Pukul 11:00)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Suara AI: "Pukul 11 tepat. Diharapkan perwakilan masing-masing kelas untuk mengambil MBG."',
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                      value: _mbgJumatAktif,
+                      onChanged: (v) => setState(() => _mbgJumatAktif = v),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -611,30 +838,74 @@ class _JpGeneratorScreenState extends ConsumerState<JpGeneratorScreen> {
             title: '5. Suara Bel',
             icon: Icons.volume_up,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _barisPilihSuara(
-                  label: 'Bel Masuk Sekolah',
-                  nilai: _suaraMasuk,
-                  onChanged: (s) => setState(() => _suaraMasuk = s),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Gunakan Suara AI Pengumuman',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Otomatis mengumumkan nomor jam: "Memasuki jam ke-1...", "Memasuki jam ke-2...", "Waktunya istirahat...", "Waktunya pulang..."',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: _gunakanSuaraAi,
+                  onChanged: (v) => setState(() => _gunakanSuaraAi = v),
                 ),
-                const Divider(),
-                _barisPilihSuara(
-                  label: 'Bel Pergantian JP',
-                  nilai: _suaraPergantian,
-                  onChanged: (s) => setState(() => _suaraPergantian = s),
-                ),
-                const Divider(),
-                _barisPilihSuara(
-                  label: 'Bel Istirahat',
-                  nilai: _suaraIstirahat,
-                  onChanged: (s) => setState(() => _suaraIstirahat = s),
-                ),
-                const Divider(),
-                _barisPilihSuara(
-                  label: 'Bel Pulang Sekolah',
-                  nilai: _suaraPulang,
-                  onChanged: (s) => setState(() => _suaraPulang = s),
-                ),
+                if (_gunakanSuaraAi) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.record_voice_over, color: Colors.green),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Suara AI Bahasa Indonesia aktif. Setiap JP dan istirahat akan otomatis dibunyikan dengan pengumuman suara yang sesuai.',
+                            style: TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Dengar contoh suara AI',
+                          icon: const Icon(Icons.play_circle, color: Colors.green, size: 28),
+                          onPressed: () => _togglePreviewSuara('assets:ai_masuk_jp1.mp3'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  _barisPilihSuara(
+                    label: 'Bel Masuk Sekolah',
+                    nilai: _suaraMasuk,
+                    onChanged: (s) => setState(() => _suaraMasuk = s),
+                  ),
+                  const Divider(),
+                  _barisPilihSuara(
+                    label: 'Bel Pergantian JP',
+                    nilai: _suaraPergantian,
+                    onChanged: (s) => setState(() => _suaraPergantian = s),
+                  ),
+                  const Divider(),
+                  _barisPilihSuara(
+                    label: 'Bel Istirahat',
+                    nilai: _suaraIstirahat,
+                    onChanged: (s) => setState(() => _suaraIstirahat = s),
+                  ),
+                  const Divider(),
+                  _barisPilihSuara(
+                    label: 'Bel Pulang Sekolah',
+                    nilai: _suaraPulang,
+                    onChanged: (s) => setState(() => _suaraPulang = s),
+                  ),
+                ],
               ],
             ),
           ),

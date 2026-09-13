@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bel_sekolah_otomatis/models/jadwal_bel.dart';
+import 'package:bel_sekolah_otomatis/models/jp_generator_config.dart';
 import 'package:bel_sekolah_otomatis/providers/pengaturan_provider.dart';
 import 'package:bel_sekolah_otomatis/services/database_service.dart';
 import 'package:bel_sekolah_otomatis/services/file_sound_service.dart';
@@ -95,6 +97,104 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
       return null;
     } catch (e) {
       return 'Gagal menerapkan jadwal: $e';
+    }
+  }
+
+  Future<String?> toggleHari(int hari, bool aktif) async {
+    try {
+      final semua = await DatabaseService.instance.getSemua();
+      final target = semua.where((j) => j.daftarHari.contains(hari)).toList();
+      for (final j in target) {
+        final baru = j.copyWith(aktif: aktif);
+        await DatabaseService.instance.update(baru);
+      }
+      final terbaru = await DatabaseService.instance.getSemua();
+      await _simpanDanJadwalkan(terbaru);
+      return null;
+    } catch (e) {
+      return 'Gagal mengubah status hari: $e';
+    }
+  }
+
+  Future<String?> hapusHari(int hari) async {
+    try {
+      await DatabaseService.instance.bersihkanJadwalHari([hari]);
+      await JpGeneratorConfig.hapusConfigHari(hari);
+      final terbaru = await DatabaseService.instance.getSemua();
+      await _simpanDanJadwalkan(terbaru);
+      return null;
+    } catch (e) {
+      return 'Gagal menghapus jadwal hari: $e';
+    }
+  }
+
+  Future<int> getPergeseranHari(int hari) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('keterlambatan_menit_$hari') ?? 0;
+  }
+
+  Future<String?> geserJadwalHari({
+    required int hari,
+    required int selisihMenit,
+  }) async {
+    try {
+      await DatabaseService.instance.geserWaktuHari(
+        hari: hari,
+        selisihMenit: selisihMenit,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'keterlambatan_menit_$hari';
+      final lama = prefs.getInt(key) ?? 0;
+      await prefs.setInt(key, lama + selisihMenit);
+
+      final terbaru = await DatabaseService.instance.getSemua();
+      await _simpanDanJadwalkan(terbaru);
+      return null;
+    } catch (e) {
+      return 'Gagal menggeser jadwal: $e';
+    }
+  }
+
+  Future<String?> resetPergeseranHari(int hari) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'keterlambatan_menit_$hari';
+      final akumulasi = prefs.getInt(key) ?? 0;
+      if (akumulasi != 0) {
+        await DatabaseService.instance.geserWaktuHari(
+          hari: hari,
+          selisihMenit: -akumulasi,
+        );
+        await prefs.remove(key);
+        final terbaru = await DatabaseService.instance.getSemua();
+        await _simpanDanJadwalkan(terbaru);
+      }
+      return null;
+    } catch (e) {
+      return 'Gagal mereset jadwal: $e';
+    }
+  }
+
+  Future<String?> ubahDenganGeserBerikutnya(
+    JadwalBel jadwal, {
+    required int selisihMenit,
+  }) async {
+    final err = jadwal.validasi();
+    if (err != null) return err;
+    try {
+      await DatabaseService.instance.update(jadwal);
+      if (selisihMenit != 0) {
+        await DatabaseService.instance.geserWaktuSetelah(
+          jadwalAwal: jadwal,
+          selisihMenit: selisihMenit,
+          daftarHari: jadwal.daftarHari,
+        );
+      }
+      final terbaru = await DatabaseService.instance.getSemua();
+      await _simpanDanJadwalkan(terbaru);
+      return null;
+    } catch (e) {
+      return 'Gagal mengubah: $e';
     }
   }
 

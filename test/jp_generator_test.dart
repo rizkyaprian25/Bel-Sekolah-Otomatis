@@ -130,5 +130,96 @@ void main() {
     // 09:55 Pulang
     expect(pratinjau[6].nama, 'Bel Pulang Sekolah');
     expect(pratinjau[6].jamLabel, '09:55');
+
+    // 11:00 Bel Pengambilan MBG Khusus Jumat
+    expect(pratinjau[7].nama, 'Bel Pengambilan MBG (Jumat)');
+    expect(pratinjau[7].jamLabel, '11:00');
+    expect(pratinjau[7].pathSuara, 'assets:ai_mbg_jumat.mp3');
+  });
+
+  test('JpGeneratorConfig memetakan suara AI sesuai permintaan user termasuk MBG', () {
+    final config = JpGeneratorConfig(
+      daftarHari: const [1],
+      jamMulai: 7,
+      menitMulai: 0,
+      jumlahJp: 8,
+      durasiJpMenit: 35,
+      istirahat1Aktif: true,
+      setelahJpKe1: 4,
+      durasiIstirahat1Menit: 30,
+      istirahat2Aktif: true,
+      setelahJpKe2: 7,
+      durasiIstirahat2Menit: 30,
+      gunakanSuaraAi: true,
+    );
+    final pratinjau = config.buatPratinjau();
+
+    // Bel Masuk JP 1 -> ai_masuk_jp1.mp3
+    expect(pratinjau[0].pathSuara, 'assets:ai_masuk_jp1.mp3');
+
+    // Bel Pergantian Masuk JP 2 -> ai_jam_ke_2.mp3
+    expect(pratinjau[1].pathSuara, 'assets:ai_jam_ke_2.mp3');
+
+    // Bel Pergantian Masuk JP 3 -> ai_jam_ke_3.mp3
+    expect(pratinjau[2].pathSuara, 'assets:ai_jam_ke_3.mp3');
+
+    // Bel Pergantian Masuk JP 4 -> ai_jam_ke_4.mp3
+    expect(pratinjau[3].pathSuara, 'assets:ai_jam_ke_4.mp3');
+
+    // Bel Istirahat 1 -> ai_istirahat.mp3
+    expect(pratinjau[4].pathSuara, 'assets:ai_istirahat.mp3');
+
+    // Bel Masuk Selesai Istirahat (JP 5) -> ai_selesai_istirahat_jp5.mp3
+    expect(pratinjau[5].pathSuara, 'assets:ai_selesai_istirahat_jp5.mp3');
+
+    // Bel Pergantian Masuk JP 6 -> ai_jam_ke_6.mp3
+    expect(pratinjau[6].pathSuara, 'assets:ai_jam_ke_6.mp3');
+
+    // Bel Pergantian Masuk JP 7 -> ai_jam_ke_7.mp3
+    expect(pratinjau[7].pathSuara, 'assets:ai_jam_ke_7.mp3');
+
+    // Bel Istirahat 2 (MBG) -> ai_istirahat2_mbg.mp3
+    expect(pratinjau[8].nama, 'Bel Istirahat 2 (Pengambilan MBG)');
+    expect(pratinjau[8].pathSuara, 'assets:ai_istirahat2_mbg.mp3');
+
+    // Bel Masuk Selesai Istirahat 2 (JP 8) -> ai_selesai_istirahat_umum.mp3
+    expect(pratinjau[9].pathSuara, 'assets:ai_selesai_istirahat_umum.mp3');
+
+    // Bel Pulang -> ai_pulang.mp3
+    expect(pratinjau[10].pathSuara, 'assets:ai_pulang.mp3');
+  });
+
+  test('JpGeneratorConfig toJson dan fromJson serialisasi dengan tepat', () {
+    const config = JpGeneratorConfig(
+      daftarHari: [1, 2],
+      jamMulai: 7,
+      menitMulai: 15,
+      adaKegiatanAwal: true,
+      namaKegiatanAwal: 'Literasi Pagi',
+      durasiKegiatanAwalMenit: 20,
+      jumlahJp: 8,
+      durasiJpMenit: 40,
+      istirahat1Aktif: true,
+      setelahJpKe1: 4,
+      durasiIstirahat1Menit: 25,
+      istirahat2Aktif: true,
+      setelahJpKe2: 6,
+      durasiIstirahat2Menit: 35,
+      gunakanSuaraAi: true,
+    );
+
+    final json = config.toJson();
+    final decoded = JpGeneratorConfig.fromJson(json);
+
+    expect(decoded.daftarHari, [1, 2]);
+    expect(decoded.jamMulai, 7);
+    expect(decoded.menitMulai, 15);
+    expect(decoded.adaKegiatanAwal, true);
+    expect(decoded.namaKegiatanAwal, 'Literasi Pagi');
+    expect(decoded.durasiKegiatanAwalMenit, 20);
+    expect(decoded.jumlahJp, 8);
+    expect(decoded.durasiJpMenit, 40);
+    expect(decoded.durasiIstirahat1Menit, 25);
+    expect(decoded.durasiIstirahat2Menit, 35);
   });
 }

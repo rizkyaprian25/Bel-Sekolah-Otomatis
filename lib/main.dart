@@ -29,7 +29,7 @@ class BelApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bel Sekolah Otomatis',
+      title: 'Bel Sekolah',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

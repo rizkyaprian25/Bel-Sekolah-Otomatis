@@ -31,6 +31,7 @@ class _JadwalFormScreenState extends ConsumerState<JadwalFormScreen> {
   late bool _aktif;
   bool _previewBunyi = false;
   bool _simpanLoading = false;
+  bool _sesuaikanBerikutnya = true;
 
   bool get _isEdit => widget.existing != null;
 
@@ -141,13 +142,29 @@ class _JadwalFormScreenState extends ConsumerState<JadwalFormScreen> {
 
     setState(() => _simpanLoading = true);
     try {
-      final gagal = _isEdit
-          ? await ref.read(jadwalProvider.notifier).ubah(
-              _isEdit && widget.existing!.aktif != _aktif
-                  ? draft
-                  : draft.copyWith(aktif: _aktif),
-            )
-          : await ref.read(jadwalProvider.notifier).tambah(draft);
+      String? gagal;
+      if (_isEdit) {
+        final menitLama =
+            widget.existing!.jam * 60 + widget.existing!.menit;
+        final menitBaru = _jam * 60 + _menit;
+        final selisih = menitBaru - menitLama;
+        final jadwalUpdate = _isEdit && widget.existing!.aktif != _aktif
+            ? draft
+            : draft.copyWith(aktif: _aktif);
+
+        if (_sesuaikanBerikutnya && selisih != 0) {
+          gagal = await ref
+              .read(jadwalProvider.notifier)
+              .ubahDenganGeserBerikutnya(
+                jadwalUpdate,
+                selisihMenit: selisih,
+              );
+        } else {
+          gagal = await ref.read(jadwalProvider.notifier).ubah(jadwalUpdate);
+        }
+      } else {
+        gagal = await ref.read(jadwalProvider.notifier).tambah(draft);
+      }
       if (!mounted) return;
       if (gagal != null) {
         ScaffoldMessenger.of(
@@ -211,6 +228,39 @@ class _JadwalFormScreenState extends ConsumerState<JadwalFormScreen> {
               ),
             ),
           ),
+          if (_isEdit) ...[
+            Builder(
+              builder: (_) {
+                final menitLama =
+                    widget.existing!.jam * 60 + widget.existing!.menit;
+                final menitBaru = _jam * 60 + _menit;
+                final selisih = menitBaru - menitLama;
+                if (selisih == 0) return const SizedBox.shrink();
+                final tanda = selisih > 0 ? '+$selisih' : '$selisih';
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      'Sesuaikan otomatis bel berikutnya ($tanda menit)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Semua jadwal setelah jam ini pada hari yang sama akan digeser secara proporsional.',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _sesuaikanBerikutnya,
+                    onChanged: (v) =>
+                        setState(() => _sesuaikanBerikutnya = v ?? true),
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 16),
           const Text('Hari berlaku', style: _label),
           const SizedBox(height: 6),

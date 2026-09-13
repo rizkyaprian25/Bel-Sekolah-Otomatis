@@ -8,6 +8,7 @@ import 'package:bel_sekolah_otomatis/screens/jadwal_form_screen.dart';
 import 'package:bel_sekolah_otomatis/screens/jp_generator_screen.dart';
 import 'package:bel_sekolah_otomatis/widgets/bel_manual_button.dart';
 import 'package:bel_sekolah_otomatis/widgets/countdown_card.dart';
+import 'package:bel_sekolah_otomatis/widgets/dialog_geser_jadwal.dart';
 import 'package:bel_sekolah_otomatis/widgets/jadwal_tile.dart';
 
 // Beranda: countdown, banner status, jadwal hari ini, bel manual.
@@ -43,11 +44,39 @@ class DashboardScreen extends ConsumerWidget {
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: Text(
-              'Jadwal hari ini (${hariIni.length})',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Jadwal Hari Ini',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (hariIni.isNotEmpty)
+                      Text(
+                        '${hariIni.first.jamLabel} - ${hariIni.last.jamLabel} • ${hariIni.where((j) => j.nama.contains("Jam Ke") || j.nama.contains("JP")).length} JP',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                  ],
+                ),
+                if (hariIni.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => DialogGeserJadwal.tampilkan(
+                      context,
+                      hari: DateTime.now().weekday,
+                      jadwalHariIni: hariIni,
+                    ),
+                    icon: const Icon(Icons.update, size: 18),
+                    label: const Text('Geser Jam'),
+                  ),
+              ],
             ),
           ),
           if (jadwalState.loading && hariIni.isEmpty)

@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import 'package:bel_sekolah_otomatis/models/jadwal_bel.dart';
+import 'package:bel_sekolah_otomatis/utils/waktu.dart';
 
 // Akses SQLite untuk tabel jadwal.
 // Dipakai dari UI isolate maupun background isolate (alarm callback),
@@ -94,6 +95,61 @@ class DatabaseService {
         batch.update(
           tabelJadwal,
           updated.toMap(),
+          where: 'id = ?',
+          whereArgs: [j.id],
+        );
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Menggeser waktu seluruh jadwal pada [hari] sebesar [selisihMenit].
+  Future<void> geserWaktuHari({
+    required int hari,
+    required int selisihMenit,
+  }) async {
+    if (selisihMenit == 0) return;
+    final semua = await getSemua();
+    final db = await database;
+    final batch = db.batch();
+
+    for (final j in semua) {
+      if (j.daftarHari.contains(hari)) {
+        final baru = tambahMenit(j.jam, j.menit, selisihMenit);
+        batch.update(
+          tabelJadwal,
+          {'jam': baru.jam, 'menit': baru.menit},
+          where: 'id = ?',
+          whereArgs: [j.id],
+        );
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Menggeser jadwal yang berada SETELAH [jadwalAwal] pada [daftarHari] sebesar [selisihMenit].
+  Future<void> geserWaktuSetelah({
+    required JadwalBel jadwalAwal,
+    required int selisihMenit,
+    required List<int> daftarHari,
+  }) async {
+    if (selisihMenit == 0) return;
+    final semua = await getSemua();
+    final menitAwal = jadwalAwal.jam * 60 + jadwalAwal.menit;
+    final db = await database;
+    final batch = db.batch();
+
+    for (final j in semua) {
+      if (j.id == jadwalAwal.id) continue;
+      final adaHariSama = j.daftarHari.any((h) => daftarHari.contains(h));
+      if (!adaHariSama) continue;
+
+      final menitJ = j.jam * 60 + j.menit;
+      if (menitJ >= menitAwal) {
+        final baru = tambahMenit(j.jam, j.menit, selisihMenit);
+        batch.update(
+          tabelJadwal,
+          {'jam': baru.jam, 'menit': baru.menit},
           where: 'id = ?',
           whereArgs: [j.id],
         );

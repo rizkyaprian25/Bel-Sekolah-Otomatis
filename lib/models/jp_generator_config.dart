@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bel_sekolah_otomatis/models/jadwal_bel.dart';
 import 'package:bel_sekolah_otomatis/utils/waktu.dart';
 
@@ -52,6 +54,12 @@ class JpGeneratorConfig {
   final int setelahJpKe2;
   final int durasiIstirahat2Menit;
 
+  // Khusus Hari Jumat: Bel Pengambilan MBG Jam 11:00
+  final bool mbgJumatAktif;
+
+  // Mode Suara AI Otomatis
+  final bool gunakanSuaraAi;
+
   // Suara & Pengulangan
   final String suaraMasuk;
   final String suaraPergantian;
@@ -76,13 +84,15 @@ class JpGeneratorConfig {
     this.istirahat2Aktif = false,
     this.setelahJpKe2 = 7,
     this.durasiIstirahat2Menit = 30,
-    this.suaraMasuk = 'assets:bel_panjang.wav',
-    this.suaraPergantian = 'assets:bel_klasik.wav',
-    this.suaraIstirahat = 'assets:bel_digital.wav',
-    this.suaraPulang = 'assets:bel_panjang.wav',
+    this.mbgJumatAktif = false,
+    this.gunakanSuaraAi = true,
+    this.suaraMasuk = 'assets:ai_masuk_jp1.mp3',
+    this.suaraPergantian = 'assets:ai_jam_ke_2.mp3',
+    this.suaraIstirahat = 'assets:ai_istirahat.mp3',
+    this.suaraPulang = 'assets:ai_pulang.mp3',
     this.volume = 1.0,
-    this.jumlahPengulangan = 3,
-    this.jedaDetik = 3,
+    this.jumlahPengulangan = 2,
+    this.jedaDetik = 2,
   });
 
   JpGeneratorConfig copyWith({
@@ -100,6 +110,8 @@ class JpGeneratorConfig {
     bool? istirahat2Aktif,
     int? setelahJpKe2,
     int? durasiIstirahat2Menit,
+    bool? mbgJumatAktif,
+    bool? gunakanSuaraAi,
     String? suaraMasuk,
     String? suaraPergantian,
     String? suaraIstirahat,
@@ -126,6 +138,8 @@ class JpGeneratorConfig {
       setelahJpKe2: setelahJpKe2 ?? this.setelahJpKe2,
       durasiIstirahat2Menit:
           durasiIstirahat2Menit ?? this.durasiIstirahat2Menit,
+      mbgJumatAktif: mbgJumatAktif ?? this.mbgJumatAktif,
+      gunakanSuaraAi: gunakanSuaraAi ?? this.gunakanSuaraAi,
       suaraMasuk: suaraMasuk ?? this.suaraMasuk,
       suaraPergantian: suaraPergantian ?? this.suaraPergantian,
       suaraIstirahat: suaraIstirahat ?? this.suaraIstirahat,
@@ -134,6 +148,94 @@ class JpGeneratorConfig {
       jumlahPengulangan: jumlahPengulangan ?? this.jumlahPengulangan,
       jedaDetik: jedaDetik ?? this.jedaDetik,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'daftarHari': daftarHari,
+      'jamMulai': jamMulai,
+      'menitMulai': menitMulai,
+      'adaKegiatanAwal': adaKegiatanAwal,
+      'namaKegiatanAwal': namaKegiatanAwal,
+      'durasiKegiatanAwalMenit': durasiKegiatanAwalMenit,
+      'jumlahJp': jumlahJp,
+      'durasiJpMenit': durasiJpMenit,
+      'istirahat1Aktif': istirahat1Aktif,
+      'setelahJpKe1': setelahJpKe1,
+      'durasiIstirahat1Menit': durasiIstirahat1Menit,
+      'istirahat2Aktif': istirahat2Aktif,
+      'setelahJpKe2': setelahJpKe2,
+      'durasiIstirahat2Menit': durasiIstirahat2Menit,
+      'mbgJumatAktif': mbgJumatAktif,
+      'gunakanSuaraAi': gunakanSuaraAi,
+      'suaraMasuk': suaraMasuk,
+      'suaraPergantian': suaraPergantian,
+      'suaraIstirahat': suaraIstirahat,
+      'suaraPulang': suaraPulang,
+      'volume': volume,
+      'jumlahPengulangan': jumlahPengulangan,
+      'jedaDetik': jedaDetik,
+    };
+  }
+
+  factory JpGeneratorConfig.fromJson(Map<String, dynamic> json) {
+    return JpGeneratorConfig(
+      daftarHari: (json['daftarHari'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [1, 2, 3, 4],
+      jamMulai: json['jamMulai'] as int? ?? 7,
+      menitMulai: json['menitMulai'] as int? ?? 0,
+      adaKegiatanAwal: json['adaKegiatanAwal'] as bool? ?? false,
+      namaKegiatanAwal:
+          json['namaKegiatanAwal'] as String? ?? 'Upacara Bendera',
+      durasiKegiatanAwalMenit:
+          json['durasiKegiatanAwalMenit'] as int? ?? 45,
+      jumlahJp: json['jumlahJp'] as int? ?? 9,
+      durasiJpMenit: json['durasiJpMenit'] as int? ?? 35,
+      istirahat1Aktif: json['istirahat1Aktif'] as bool? ?? true,
+      setelahJpKe1: json['setelahJpKe1'] as int? ?? 4,
+      durasiIstirahat1Menit: json['durasiIstirahat1Menit'] as int? ?? 30,
+      istirahat2Aktif: json['istirahat2Aktif'] as bool? ?? false,
+      setelahJpKe2: json['setelahJpKe2'] as int? ?? 7,
+      durasiIstirahat2Menit: json['durasiIstirahat2Menit'] as int? ?? 30,
+      mbgJumatAktif: json['mbgJumatAktif'] as bool? ?? false,
+      gunakanSuaraAi: json['gunakanSuaraAi'] as bool? ?? true,
+      suaraMasuk:
+          json['suaraMasuk'] as String? ?? 'assets:ai_masuk_jp1.mp3',
+      suaraPergantian:
+          json['suaraPergantian'] as String? ?? 'assets:ai_jam_ke_2.mp3',
+      suaraIstirahat:
+          json['suaraIstirahat'] as String? ?? 'assets:ai_istirahat.mp3',
+      suaraPulang: json['suaraPulang'] as String? ?? 'assets:ai_pulang.mp3',
+      volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
+      jumlahPengulangan: json['jumlahPengulangan'] as int? ?? 2,
+      jedaDetik: json['jedaDetik'] as int? ?? 2,
+    );
+  }
+
+  static Future<void> simpanConfigHari(
+      int hari, JpGeneratorConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'jp_config_hari_$hari', jsonEncode(config.toJson()));
+  }
+
+  static Future<JpGeneratorConfig?> bacaConfigHari(int hari) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('jp_config_hari_$hari');
+    if (data == null) return null;
+    try {
+      return JpGeneratorConfig.fromJson(
+          jsonDecode(data) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> hapusConfigHari(int hari) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jp_config_hari_$hari');
   }
 
   /// Preset bawaan untuk kemudahan konfigurasi
@@ -145,7 +247,9 @@ class JpGeneratorConfig {
       istirahat1Aktif: true,
       setelahJpKe1: 4,
       durasiIstirahat1Menit: 30,
-      istirahat2Aktif: false,
+      istirahat2Aktif: true,
+      setelahJpKe2: 7,
+      durasiIstirahat2Menit: 30,
     );
   }
 
@@ -160,7 +264,9 @@ class JpGeneratorConfig {
       istirahat1Aktif: true,
       setelahJpKe1: 4,
       durasiIstirahat1Menit: 30,
-      istirahat2Aktif: false,
+      istirahat2Aktif: true,
+      setelahJpKe2: 7,
+      durasiIstirahat2Menit: 30,
     );
   }
 
@@ -173,6 +279,7 @@ class JpGeneratorConfig {
       setelahJpKe1: 3,
       durasiIstirahat1Menit: 25,
       istirahat2Aktif: false,
+      mbgJumatAktif: true,
     );
   }
 
@@ -190,7 +297,7 @@ class JpGeneratorConfig {
           menit: current.minute,
           tipe: TipeItemJp.upacara,
           keterangan: 'Durasi $durasiKegiatanAwalMenit menit',
-          pathSuara: suaraMasuk,
+          pathSuara: gunakanSuaraAi ? 'assets:ai_masuk_jp1.mp3' : suaraMasuk,
         ),
       );
       current = current.add(Duration(minutes: durasiKegiatanAwalMenit));
@@ -202,7 +309,7 @@ class JpGeneratorConfig {
           menit: current.minute,
           tipe: TipeItemJp.masuk,
           keterangan: 'Mulai kegiatan belajar JP 1',
-          pathSuara: suaraMasuk,
+          pathSuara: gunakanSuaraAi ? 'assets:ai_masuk_jp1.mp3' : suaraMasuk,
         ),
       );
     }
@@ -219,13 +326,31 @@ class JpGeneratorConfig {
             menit: current.minute,
             tipe: TipeItemJp.jp,
             keterangan: 'Mulai JP 1 setelah $namaKegiatanAwal',
-            pathSuara: suaraPergantian,
+            pathSuara: gunakanSuaraAi ? 'assets:ai_masuk_jp1.mp3' : suaraMasuk,
           ),
         );
       } else if (i > 1) {
         final nama = baruSelesaiIstirahat
             ? 'Bel Masuk Selesai Istirahat (JP $i)'
             : 'Bel Pergantian Jam (Masuk JP $i)';
+
+        String pathSuaraJp;
+        if (baruSelesaiIstirahat) {
+          if (gunakanSuaraAi) {
+            pathSuaraJp = i == 5
+                ? 'assets:ai_selesai_istirahat_jp5.mp3'
+                : 'assets:ai_selesai_istirahat_umum.mp3';
+          } else {
+            pathSuaraJp = suaraMasuk;
+          }
+        } else {
+          if (gunakanSuaraAi) {
+            pathSuaraJp = i <= 10 ? 'assets:ai_jam_ke_$i.mp3' : suaraPergantian;
+          } else {
+            pathSuaraJp = suaraPergantian;
+          }
+        }
+
         list.add(
           ItemPratinjauJp(
             nama: nama,
@@ -233,7 +358,7 @@ class JpGeneratorConfig {
             menit: current.minute,
             tipe: TipeItemJp.jp,
             keterangan: 'Durasi JP $durasiJpMenit menit',
-            pathSuara: baruSelesaiIstirahat ? suaraMasuk : suaraPergantian,
+            pathSuara: pathSuaraJp,
           ),
         );
       }
@@ -251,23 +376,27 @@ class JpGeneratorConfig {
             menit: current.minute,
             tipe: TipeItemJp.istirahat,
             keterangan: 'Istirahat di luar JP ($durasiIstirahat1Menit menit)',
-            pathSuara: suaraIstirahat,
+            pathSuara:
+                gunakanSuaraAi ? 'assets:ai_istirahat.mp3' : suaraIstirahat,
           ),
         );
         current = current.add(Duration(minutes: durasiIstirahat1Menit));
         baruSelesaiIstirahat = true;
       }
 
-      // Cek Istirahat 2 (opsional, misal Dzuhur)
+      // Cek Istirahat 2 (MBG / Dzuhur)
       if (istirahat2Aktif && setelahJpKe2 == i && i < jumlahJp) {
         list.add(
           ItemPratinjauJp(
-            nama: 'Bel Istirahat 2 / Dzuhur',
+            nama: 'Bel Istirahat 2 (Pengambilan MBG)',
             jam: current.hour,
             menit: current.minute,
             tipe: TipeItemJp.istirahat,
-            keterangan: 'Istirahat di luar JP ($durasiIstirahat2Menit menit)',
-            pathSuara: suaraIstirahat,
+            keterangan:
+                'Istirahat ($durasiIstirahat2Menit menit) • Pengambilan MBG',
+            pathSuara: gunakanSuaraAi
+                ? 'assets:ai_istirahat2_mbg.mp3'
+                : suaraIstirahat,
           ),
         );
         current = current.add(Duration(minutes: durasiIstirahat2Menit));
@@ -275,7 +404,22 @@ class JpGeneratorConfig {
       }
     }
 
-    // 3. Bel Pulang Sekolah
+    // 3. Bel Pengambilan MBG Khusus Jumat (Pukul 11:00)
+    if (mbgJumatAktif && daftarHari.contains(5)) {
+      list.add(
+        ItemPratinjauJp(
+          nama: 'Bel Pengambilan MBG (Jumat)',
+          jam: 11,
+          menit: 0,
+          tipe: TipeItemJp.istirahat,
+          keterangan: 'Pengambilan MBG hari Jumat tepat pukul 11:00',
+          pathSuara:
+              gunakanSuaraAi ? 'assets:ai_mbg_jumat.mp3' : suaraIstirahat,
+        ),
+      );
+    }
+
+    // 4. Bel Pulang Sekolah
     list.add(
       ItemPratinjauJp(
         nama: 'Bel Pulang Sekolah',
@@ -283,9 +427,12 @@ class JpGeneratorConfig {
         menit: current.minute,
         tipe: TipeItemJp.pulang,
         keterangan: 'Semua jam pelajaran telah selesai',
-        pathSuara: suaraPulang,
+        pathSuara: gunakanSuaraAi ? 'assets:ai_pulang.mp3' : suaraPulang,
       ),
     );
+
+    // Urutkan jadwal secara kronologis berdasarkan jam & menit
+    list.sort((a, b) => (a.jam * 60 + a.menit).compareTo(b.jam * 60 + b.menit));
 
     return list;
   }
