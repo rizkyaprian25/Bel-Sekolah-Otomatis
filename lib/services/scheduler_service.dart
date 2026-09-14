@@ -84,7 +84,7 @@ class SchedulerService {
         final alarmId = _alarmId(j.id, tanggal);
         ids.add(alarmId);
         try {
-          await AndroidAlarmManager.oneShotAt(
+          final ok = await AndroidAlarmManager.oneShotAt(
             waktu,
             alarmId,
             alarmCallback,
@@ -94,8 +94,9 @@ class SchedulerService {
             rescheduleOnReboot: true,
             params: {'jadwalId': j.id},
           );
-        } catch (_) {
-          // Lanjut ke kemunculan lain walau satu gagal.
+          debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ${j.nama} @ $waktu => $ok');
+        } catch (e) {
+          debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ERROR: $e');
         }
       }
     }
@@ -104,7 +105,13 @@ class SchedulerService {
   }
 
   static int _alarmId(String jadwalId, DateTime tanggal) {
-    return Object.hash(jadwalId, tanggalKey(tanggal)) & 0x7fffffff;
+    final key = '$jadwalId-${tanggalKey(tanggal)}';
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < key.length; i++) {
+      hash = (hash ^ key.codeUnitAt(i)) * 0x01000193;
+      hash &= 0x7fffffff;
+    }
+    return hash;
   }
 
   static Future<void> _batalkanLama() async {
@@ -225,17 +232,21 @@ class SchedulerService {
 
       List<JadwalBel> semua = daftarJadwal ?? [];
       if (daftarJadwal == null) {
-        final db = await DatabaseService.openDb();
-        try {
-          final maps = await db.query(
-            DatabaseService.tabelJadwal,
-            orderBy: 'jam ASC, menit ASC',
-          );
-          semua = maps.map(JadwalBel.fromMap).toList();
-        } finally {
+        if (diBackground) {
+          final db = await DatabaseService.openDb();
           try {
-            await db.close();
-          } catch (_) {}
+            final maps = await db.query(
+              DatabaseService.tabelJadwal,
+              orderBy: 'jam ASC, menit ASC',
+            );
+            semua = maps.map(JadwalBel.fromMap).toList();
+          } finally {
+            try {
+              await db.close();
+            } catch (_) {}
+          }
+        } else {
+          semua = await DatabaseService.instance.getSemua();
         }
       }
 
@@ -296,6 +307,50 @@ class SchedulerService {
       debugPrint('perbaruiStatusNotifikasi error: $e');
     }
   }
+
+  static const String _keyTerakhirBunyi = 'jadwal_terakhir_bunyi';
+  static String? _memoriTerakhirBunyi;
+
+  static Future<bool> sudahBunyi(String key) async {
+    if (_memoriTerakhirBunyi == key) return true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final tersimpan = prefs.getString(_keyTerakhirBunyi);
+      if (tersimpan == key) {
+        _memoriTerakhirBunyi = key;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  static Future<void> catatSudahBunyi(String key) async {
+    _memoriTerakhirBunyi = key;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyTerakhirBunyi, key);
+    } catch (_) {}
+  }
+
+  /// Pemicu bel saat aplikasi sedang aktif di layar (foreground stream).
+  static Future<void> periksaDanBunyikanDiForeground(
+    JadwalBel jadwal,
+    String key,
+  ) async {
+    if (await sudahBunyi(key)) return;
+    await catatSudahBunyi(key);
+    debugPrint('SchedulerService(fg): Bunyikan ${jadwal.nama}');
+    try {
+      await NotificationService.instance.tampilBel(
+        jadwal.nama,
+        jadwal.jamLabel,
+      );
+      await AudioService.instance.playJadwal(jadwal);
+      await perbaruiStatusNotifikasi();
+    } catch (e) {
+      debugPrint('SchedulerService(fg) ERROR: $e');
+    }
+  }
 }
 
 class BelBerikutnya {
@@ -353,6 +408,13 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
       debugPrint('alarmCallback: tidak berlaku hari ini, abaikan');
       return;
     }
+
+    final key = '${jadwal.id}_${tanggalKey(now)}_${jadwal.jam}_${jadwal.menit}';
+    if (await SchedulerService.sudahBunyi(key)) {
+      debugPrint('alarmCallback: bel sudah dibunyikan (foreground/alarm lain), lewati');
+      return;
+    }
+    await SchedulerService.catatSudahBunyi(key);
 
     debugPrint('alarmCallback: bunyikan ${jadwal.nama}');
 

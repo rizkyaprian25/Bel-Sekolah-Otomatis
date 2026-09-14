@@ -18,7 +18,7 @@ class DatabaseService {
 
   Future<Database> get database async {
     final db = _db;
-    if (db != null) return db;
+    if (db != null && db.isOpen) return db;
     return _db = await openDb();
   }
 

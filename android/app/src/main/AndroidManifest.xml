@@ -56,6 +56,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Wajib untuk android_alarm_manager_plus -->
+        <service
+            android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
+        <receiver
+            android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmBroadcastReceiver"
+            android:exported="false" />
+
         <!-- Wajib untuk android_alarm_manager_plus dengan rescheduleOnReboot.
              Manifest bawaan plugin tidak mendeklarasikannya sehingga
              setComponentEnabledSetting melempar IllegalArgumentException dan
