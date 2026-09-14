@@ -212,6 +212,8 @@ class AudioService {
 
   // --- Dipakai dari background isolate (alarm callback) ---
 
+  static AudioPlayer? _bgPlayer;
+
   static Future<void> playInBackground({
     required String pathSuara,
     required double volume,
@@ -219,7 +221,13 @@ class AudioService {
     required int jedaDetik,
   }) async {
     debugPrint('AudioService(bg): mulai $pathSuara x$pengulangan');
+    try {
+      await _bgPlayer?.stop();
+      await _bgPlayer?.dispose();
+    } catch (_) {}
+
     final player = AudioPlayer();
+    _bgPlayer = player;
     try {
       try {
         await player.setAudioContext(audioContext);

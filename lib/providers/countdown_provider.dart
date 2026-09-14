@@ -36,7 +36,7 @@ final countdownProvider = StreamProvider.autoDispose<Countdown>((ref) async* {
       // bunyikan bel langsung di foreground jika belum dibunyikan.
       if (sisa.inSeconds <= 0 && sisa.inSeconds >= -3 && !atur.modeSenyap) {
         final key =
-            '${next.jadwal.id}_${tanggalKey(now)}_${next.jadwal.jam}_${next.jadwal.menit}';
+            'bel_${tanggalKey(now)}_${next.jadwal.jam}_${next.jadwal.menit}';
         SchedulerService.periksaDanBunyikanDiForeground(next.jadwal, key);
       }
     }

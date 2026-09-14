@@ -7,17 +7,19 @@ import 'package:bel_sekolah_otomatis/models/pengaturan.dart';
 import 'package:bel_sekolah_otomatis/services/audio_service.dart';
 import 'package:bel_sekolah_otomatis/services/database_service.dart';
 import 'package:bel_sekolah_otomatis/services/notification_service.dart';
+import 'package:bel_sekolah_otomatis/utils/async_lock.dart';
 import 'package:bel_sekolah_otomatis/utils/konstanta.dart';
 import 'package:bel_sekolah_otomatis/utils/waktu.dart';
 
 // Penjadwalan alarm exact via AndroidAlarmManager.
 // Strategi: daftarkan one-shot untuk tiap kemunculan 7 hari ke depan.
-// Dipanggil ulang setiap ada perubahan jadwal / pengaturan.
+// Menggunakan AsyncLock agar reschedule berurutan dan bebas dari race condition / alarm hantu.
 class SchedulerService {
   SchedulerService._();
 
   static const int hariKeDepan = 7;
   static const String _keyAlarmIds = 'jadwal_alarm_ids';
+  static final AsyncLock _schedulerLock = AsyncLock();
 
   /// Panggil sekali dari main() sebelum runApp.
   static Future<void> init() async {
@@ -45,63 +47,79 @@ class SchedulerService {
     await rescheduleDenganData(semua, atur);
   }
 
+  /// Membatalkan secara eksplisit semua alarm milik satu jadwal (misal saat dihapus)
+  static Future<void> batalkanAlarmJadwal(String jadwalId) async {
+    final now = DateTime.now();
+    for (var offset = 0; offset < hariKeDepan + 1; offset++) {
+      final tanggal = DateTime(now.year, now.month, now.day).add(
+        Duration(days: offset),
+      );
+      final id = _alarmId(jadwalId, tanggal);
+      try {
+        await AndroidAlarmManager.cancel(id);
+      } catch (_) {}
+    }
+  }
+
   static Future<void> rescheduleDenganData(
     List<JadwalBel> semua,
     Pengaturan atur,
   ) async {
-    await _batalkanLama();
-    if (atur.modeSenyap) {
-      await _simpanIds(const []);
-      await perbaruiStatusNotifikasi(daftarJadwal: semua);
-      return;
-    }
-    final now = DateTime.now();
-    final ids = <int>[];
+    return _schedulerLock.synchronized(() async {
+      await _batalkanLama();
+      if (atur.modeSenyap) {
+        await _simpanIds(const []);
+        await perbaruiStatusNotifikasi(daftarJadwal: semua);
+        return;
+      }
+      final now = DateTime.now();
+      final ids = <int>[];
 
-    for (final j in semua) {
-      if (!j.aktif) continue;
-      for (var offset = 0; offset < hariKeDepan; offset++) {
-        final tanggal = DateTime(now.year, now.month, now.day).add(
-          Duration(days: offset),
-        );
-        if (!j.berlakuPada(tanggal)) continue;
-        if (atur.tanggalLibur.contains(tanggalKey(tanggal))) continue;
-        final target = DateTime(
-          tanggal.year,
-          tanggal.month,
-          tanggal.day,
-          j.jam,
-          j.menit,
-        );
-        // Toleransi 60 detik agar jadwal yang baru disimpan untuk menit
-        // berjalan masih sempat dijadwalkan.
-        if (target.isBefore(now.subtract(const Duration(seconds: 60)))) {
-          continue;
-        }
-        final waktu = target.isBefore(now)
-            ? now.add(const Duration(seconds: 2))
-            : target;
-        final alarmId = _alarmId(j.id, tanggal);
-        ids.add(alarmId);
-        try {
-          final ok = await AndroidAlarmManager.oneShotAt(
-            waktu,
-            alarmId,
-            alarmCallback,
-            exact: true,
-            wakeup: true,
-            allowWhileIdle: true,
-            rescheduleOnReboot: true,
-            params: {'jadwalId': j.id},
+      for (final j in semua) {
+        if (!j.aktif) continue;
+        for (var offset = 0; offset < hariKeDepan; offset++) {
+          final tanggal = DateTime(now.year, now.month, now.day).add(
+            Duration(days: offset),
           );
-          debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ${j.nama} @ $waktu => $ok');
-        } catch (e) {
-          debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ERROR: $e');
+          if (!j.berlakuPada(tanggal)) continue;
+          if (atur.tanggalLibur.contains(tanggalKey(tanggal))) continue;
+          final target = DateTime(
+            tanggal.year,
+            tanggal.month,
+            tanggal.day,
+            j.jam,
+            j.menit,
+          );
+          // Toleransi 60 detik agar jadwal yang baru disimpan untuk menit
+          // berjalan masih sempat dijadwalkan.
+          if (target.isBefore(now.subtract(const Duration(seconds: 60)))) {
+            continue;
+          }
+          final waktu = target.isBefore(now)
+              ? now.add(const Duration(seconds: 2))
+              : target;
+          final alarmId = _alarmId(j.id, tanggal);
+          ids.add(alarmId);
+          try {
+            final ok = await AndroidAlarmManager.oneShotAt(
+              waktu,
+              alarmId,
+              alarmCallback,
+              exact: true,
+              wakeup: true,
+              allowWhileIdle: true,
+              rescheduleOnReboot: true,
+              params: {'jadwalId': j.id},
+            );
+            debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ${j.nama} @ $waktu => $ok');
+          } catch (e) {
+            debugPrint('AndroidAlarmManager.oneShotAt [$alarmId] ERROR: $e');
+          }
         }
       }
-    }
-    await _simpanIds(ids);
-    await perbaruiStatusNotifikasi(daftarJadwal: semua);
+      await _simpanIds(ids);
+      await perbaruiStatusNotifikasi(daftarJadwal: semua);
+    });
   }
 
   static int _alarmId(String jadwalId, DateTime tanggal) {
@@ -174,25 +192,24 @@ class SchedulerService {
       for (final j in semua) {
         if (!j.aktif) continue;
         if (!j.berlakuPada(tanggal)) continue;
-        final target = DateTime(
+        final waktu = DateTime(
           tanggal.year,
           tanggal.month,
           tanggal.day,
           j.jam,
           j.menit,
         );
-        if (!target.isAfter(now)) continue;
-        if (hasil == null || target.isBefore(hasil.waktu)) {
-          hasil = BelBerikutnya(jadwal: j, waktu: target);
+        if (waktu.isBefore(now)) continue;
+        if (hasil == null || waktu.isBefore(hasil.waktu)) {
+          hasil = BelBerikutnya(jadwal: j, waktu: waktu);
         }
       }
-      if (hasil != null && offset > 1) break;
     }
     return hasil;
   }
 
   /// Memperbarui notifikasi status persisten (bergaya media player).
-  /// Dapat dipanggil dari UI isolate atau background isolate.
+  /// Aman dipanggil dari UI isolate atau background isolate tanpa menutup DB.
   static Future<void> perbaruiStatusNotifikasi({
     List<JadwalBel>? daftarJadwal,
     bool diBackground = false,
@@ -230,25 +247,8 @@ class SchedulerService {
         return;
       }
 
-      List<JadwalBel> semua = daftarJadwal ?? [];
-      if (daftarJadwal == null) {
-        if (diBackground) {
-          final db = await DatabaseService.openDb();
-          try {
-            final maps = await db.query(
-              DatabaseService.tabelJadwal,
-              orderBy: 'jam ASC, menit ASC',
-            );
-            semua = maps.map(JadwalBel.fromMap).toList();
-          } finally {
-            try {
-              await db.close();
-            } catch (_) {}
-          }
-        } else {
-          semua = await DatabaseService.instance.getSemua();
-        }
-      }
+      final List<JadwalBel> semua = daftarJadwal ??
+          await DatabaseService.instance.getSemua();
 
       final now = DateTime.now();
       final berikutnya = cariBerikutnya(semua, atur, now);
@@ -258,36 +258,20 @@ class SchedulerService {
       String? subteks;
 
       if (berikutnya != null) {
-        final selisih = berikutnya.waktu.difference(now);
-        final hariSama = berikutnya.waktu.day == now.day &&
-            berikutnya.waktu.month == now.month &&
-            berikutnya.waktu.year == now.year;
+        final bedaHari = berikutnya.waktu.day - now.day;
+        final hariStr = bedaHari == 0
+            ? 'Hari Ini'
+            : bedaHari == 1
+                ? 'Besok'
+                : AppKonstanta.namaHari[berikutnya.waktu.weekday];
 
-        final jamStr = berikutnya.jadwal.jamLabel;
-        final namaStr = berikutnya.jadwal.nama;
-
-        if (hariSama) {
-          pesan = 'Berikutnya: $jamStr • $namaStr';
-          if (selisih.inMinutes <= 60) {
-            subteks = '${selisih.inMinutes} mnt lagi';
-          } else {
-            final jam = selisih.inHours;
-            final mnt = selisih.inMinutes % 60;
-            subteks = '$jam jam $mnt mnt lagi';
-          }
-        } else {
-          final namaHari = AppKonstanta.namaHari[berikutnya.waktu.weekday];
-          pesan = 'Berikutnya ($namaHari): $jamStr • $namaStr';
-          subteks = namaHari;
-        }
+        judul = '🔔 Bel Berikutnya: ${berikutnya.jadwal.nama}';
+        pesan = 'Pukul ${berikutnya.jadwal.jamLabel} ($hariStr)';
+        subteks = 'Jadwal $hariStr';
       } else {
-        if (atur.tanggalLibur.contains(tanggalKey(now))) {
-          pesan = 'Hari ini libur sekolah • Siap untuk hari aktif';
-          subteks = 'Libur Sekolah';
-        } else {
-          pesan = 'Semua bel hari ini telah selesai';
-          subteks = 'Selesai';
-        }
+        judul = '🔔 Bel Sekolah: Tidak Ada Jadwal';
+        pesan = 'Semua bel hari ini telah selesai atau sedang libur';
+        subteks = 'Siaga';
       }
 
       if (diBackground) {
@@ -381,22 +365,16 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
     final now = DateTime.now();
     if (libur.contains(tanggalKey(now))) return;
 
-    final db = await DatabaseService.openDb();
-    List<Map<String, Object?>> rows = [];
-    try {
-      rows = await db.query(
-        DatabaseService.tabelJadwal,
-        where: 'id = ?',
-        whereArgs: [jadwalId],
-        limit: 1,
-      );
-    } finally {
-      try {
-        await db.close();
-      } catch (_) {}
-    }
+    // Baca data jadwal dari database TANPA menutup koneksi database (no db.close)
+    final db = await DatabaseService.instance.database;
+    final rows = await db.query(
+      DatabaseService.tabelJadwal,
+      where: 'id = ?',
+      whereArgs: [jadwalId],
+      limit: 1,
+    );
     if (rows.isEmpty) {
-      debugPrint('alarmCallback: jadwal $jadwalId tidak ketemu di DB');
+      debugPrint('alarmCallback: jadwal $jadwalId sudah dihapus dari DB, abaikan');
       return;
     }
     final jadwal = JadwalBel.fromMap(rows.first);
@@ -409,9 +387,11 @@ Future<void> alarmCallback(int alarmId, Map<String, dynamic> params) async {
       return;
     }
 
-    final key = '${jadwal.id}_${tanggalKey(now)}_${jadwal.jam}_${jadwal.menit}';
+    // Kunci deduplikasi global berdasarkan jam & menit bel sekolah.
+    // Menjamin TIDAK ADA dua bel yang berbunyi bersamaan saling bertabrakan pada menit yang sama.
+    final key = 'bel_${tanggalKey(now)}_${jadwal.jam}_${jadwal.menit}';
     if (await SchedulerService.sudahBunyi(key)) {
-      debugPrint('alarmCallback: bel sudah dibunyikan (foreground/alarm lain), lewati');
+      debugPrint('alarmCallback: bel $key sudah berbunyi (foreground/alarm lain), lewati');
       return;
     }
     await SchedulerService.catatSudahBunyi(key);

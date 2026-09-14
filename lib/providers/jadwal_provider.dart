@@ -90,9 +90,13 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
     if (listJadwal.isEmpty) return 'Daftar jadwal kosong';
     try {
       if (gantiJadwalLama) {
-        await DatabaseService.instance.bersihkanJadwalHari(daftarHari);
+        await DatabaseService.instance.gantiJadwalHari(
+          daftarHariTarget: daftarHari,
+          jadwalBaru: listJadwal,
+        );
+      } else {
+        await DatabaseService.instance.insertBatch(listJadwal);
       }
-      await DatabaseService.instance.insertBatch(listJadwal);
       final terbaru = await DatabaseService.instance.getSemua();
       await _simpanDanJadwalkan(terbaru);
       return null;
@@ -119,8 +123,17 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
 
   Future<String?> hapusHari(int hari) async {
     try {
+      // 1. Batalkan alarm Android terlebih dahulu untuk seluruh bel hari tersebut
+      final semuaSebelumnya = await DatabaseService.instance.getSemua();
+      for (final j
+          in semuaSebelumnya.where((item) => item.daftarHari.contains(hari))) {
+        await SchedulerService.batalkanAlarmJadwal(j.id);
+      }
+
+      // 2. Bersihkan baris jadwal dan konfigurasi
       await DatabaseService.instance.bersihkanJadwalHari([hari]);
       await JpGeneratorConfig.hapusConfigHari(hari);
+
       final terbaru = await DatabaseService.instance.getSemua();
       await _simpanDanJadwalkan(terbaru);
       return null;
@@ -183,14 +196,10 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
     final err = jadwal.validasi();
     if (err != null) return err;
     try {
-      await DatabaseService.instance.update(jadwal);
-      if (selisihMenit != 0) {
-        await DatabaseService.instance.geserWaktuSetelah(
-          jadwalAwal: jadwal,
-          selisihMenit: selisihMenit,
-          daftarHari: jadwal.daftarHari,
-        );
-      }
+      await DatabaseService.instance.updateDenganGeserSetelah(
+        jadwal: jadwal,
+        selisihMenit: selisihMenit,
+      );
       final terbaru = await DatabaseService.instance.getSemua();
       await _simpanDanJadwalkan(terbaru);
       return null;
@@ -224,6 +233,7 @@ class JadwalNotifier extends StateNotifier<JadwalState> {
 
   Future<String?> hapus(String id) async {
     try {
+      await SchedulerService.batalkanAlarmJadwal(id);
       final lama = await DatabaseService.instance.getById(id);
       await DatabaseService.instance.hapus(id);
       if (lama != null && lama.pathSuara.startsWith('file:')) {
